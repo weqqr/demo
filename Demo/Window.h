@@ -27,6 +27,7 @@ public:
     ~Window();
 
     bool close_requested() const;
+    void* raw_handle() const;
 
 private:
     GLFWwindow* m_window = nullptr;

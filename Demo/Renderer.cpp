@@ -1,8 +1,9 @@
 #include <DM/Base.h>
 #include <DM/Log.h>
 #include <Demo/Renderer.h>
+#include <Demo/Window.h>
 #include <vector>
-#include <volk.h>
+#include <windows.h> // GetModuleHandle
 
 #define VK_ASSERT(condition) ASSERT((condition) == VK_SUCCESS)
 
@@ -11,6 +12,8 @@ static VkInstance create_instance()
 {
     std::vector<const char*> extensions = {
         VK_EXT_DEBUG_UTILS_EXTENSION_NAME,
+        VK_KHR_SURFACE_EXTENSION_NAME,
+        VK_KHR_WIN32_SURFACE_EXTENSION_NAME,
     };
 
     std::vector<const char*> layers = {
@@ -81,6 +84,21 @@ static VkDebugUtilsMessengerEXT create_debug_messenger(VkInstance instance)
     return messenger;
 }
 
+static VkSurfaceKHR create_surface(VkInstance instance, const Window& window)
+{
+    VkWin32SurfaceCreateInfoKHR create_info = {
+        .sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR,
+        .hinstance = GetModuleHandleA(nullptr),
+        .hwnd = static_cast<HWND>(window.raw_handle()),
+    };
+
+    VkSurfaceKHR surface = VK_NULL_HANDLE;
+    auto result = vkCreateWin32SurfaceKHR(instance, &create_info, nullptr, &surface);
+    VK_ASSERT(result);
+
+    return surface;
+}
+
 Renderer::Renderer(const Window& window)
 {
     VK_ASSERT(volkInitialize());
@@ -88,11 +106,13 @@ Renderer::Renderer(const Window& window)
     m_instance = create_instance();
     volkLoadInstance(m_instance);
     m_debug_messenger = create_debug_messenger(m_instance);
+    m_surface = create_surface(m_instance, window);
 }
 
 Renderer::~Renderer()
 {
     if (m_instance) {
+        vkDestroySurfaceKHR(m_instance, m_surface, nullptr);
         vkDestroyDebugUtilsMessengerEXT(m_instance, m_debug_messenger, nullptr);
         vkDestroyInstance(m_instance, nullptr);
     }
