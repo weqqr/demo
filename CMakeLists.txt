@@ -15,6 +15,10 @@ target_compile_features(DM PUBLIC cxx_std_20)
 target_include_directories(DM PUBLIC ${CMAKE_CURRENT_LIST_DIR})
 target_link_libraries(DM fmt::fmt)
 
-add_executable(Demo Demo/Main.cpp)
+add_executable(Demo
+        Demo/Main.cpp
+        Demo/Renderer.cpp
+        Demo/Window.cpp)
 target_compile_features(Demo PUBLIC cxx_std_20)
+target_include_directories(Demo PUBLIC ${CMAKE_CURRENT_LIST_DIR})
 target_link_libraries(Demo DM glfw volk)
