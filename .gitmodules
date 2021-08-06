@@ -1,0 +1,9 @@
+[submodule "Vendor/volk"]
+	path = Vendor/volk
+	url = https://github.com/zeux/volk
+[submodule "Vendor/fmt"]
+	path = Vendor/fmt
+	url = https://github.com/fmtlib/fmt
+[submodule "Vendor/glfw"]
+	path = Vendor/glfw
+	url = https://github.com/glfw/glfw

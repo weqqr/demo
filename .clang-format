@@ -1,0 +1,9 @@
+Language: Cpp
+BasedOnStyle: WebKit
+SpaceAfterTemplateKeyword: false
+SpaceBeforeCpp11BracedList: false
+Cpp11BracedListStyle: true
+BreakBeforeBraces: Custom
+NamespaceIndentation: None
+BraceWrapping:
+  AfterFunction: true
