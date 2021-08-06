@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.8)
 project(Demo)
 
 add_subdirectory(Vendor/fmt)
+add_subdirectory(Vendor/glfw)
 add_subdirectory(Vendor/volk)
 
 add_library(DM
@@ -16,4 +17,4 @@ target_link_libraries(DM fmt::fmt)
 
 add_executable(Demo Demo/Main.cpp)
 target_compile_features(Demo PUBLIC cxx_std_20)
-target_link_libraries(Demo DM volk)
+target_link_libraries(Demo DM glfw volk)

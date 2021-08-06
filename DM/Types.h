@@ -14,7 +14,7 @@ using uint16_t = unsigned short;
 using uint32_t = unsigned int;
 using uint64_t = unsigned long long;
 
-using int8_t = char;
+using int8_t = signed char;
 using int16_t = short;
 using int32_t = int;
 using int64_t = long long;
@@ -31,3 +31,15 @@ static_assert(sizeof(int16_t) == 2);
 static_assert(sizeof(int32_t) == 4);
 static_assert(sizeof(int64_t) == 8);
 }
+
+using DM::uint8_t;
+using DM::uint16_t;
+using DM::uint32_t;
+using DM::uint64_t;
+
+using DM::int8_t;
+using DM::int16_t;
+using DM::int32_t;
+using DM::int64_t;
+
+using DM::size_t;
