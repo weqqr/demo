@@ -14,6 +14,9 @@ void log(LogLevel level, const char* format, const fmt::format_args& args)
     case LogLevel::Warning:
         level_text = " WARN";
         break;
+    case LogLevel::Error:
+        level_text = "ERROR";
+        break;
     case LogLevel::Fatal:
         level_text = "FATAL";
         break;

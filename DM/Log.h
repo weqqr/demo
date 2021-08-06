@@ -6,6 +6,7 @@ namespace DM {
 enum class LogLevel {
     Info,
     Warning,
+    Error,
     Fatal,
 };
 
@@ -27,3 +28,6 @@ void log(LogLevel level, const char* format, Args&&... args)
     DM::Impl::log(level, format, fmt_args);
 }
 }
+
+using DM::LogLevel;
+using DM::log;
