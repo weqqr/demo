@@ -26,5 +26,6 @@ private:
     VkSurfaceKHR m_surface = VK_NULL_HANDLE;
     VkPhysicalDevice m_physical_device = VK_NULL_HANDLE;
     QueueFamilies m_queue_families = {};
+    VkDevice m_device = VK_NULL_HANDLE;
 };
 }

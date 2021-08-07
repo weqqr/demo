@@ -2,6 +2,7 @@
 #include <DM/Log.h>
 #include <Demo/Renderer.h>
 #include <Demo/Window.h>
+#include <algorithm>
 #include <vector>
 #include <windows.h> // GetModuleHandle
 
@@ -168,6 +169,51 @@ static std::pair<VkPhysicalDevice, QueueFamilies> select_physical_device(VkInsta
     PANIC("No devices found");
 }
 
+static VkDevice create_device(VkPhysicalDevice physical_device, QueueFamilies queue_families)
+{
+    std::vector<uint32_t> families = {
+        queue_families.graphics,
+        queue_families.compute,
+        queue_families.present,
+    };
+
+    families.erase(std::unique(families.begin(), families.end()), families.end());
+
+    std::vector<VkDeviceQueueCreateInfo> device_queue_create_infos;
+    float priority = 1.0f;
+    for (auto family_index : families) {
+        VkDeviceQueueCreateInfo device_queue_create_info = {
+            .sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
+            .queueFamilyIndex = family_index,
+            .queueCount = 1,
+            .pQueuePriorities = &priority,
+        };
+
+        device_queue_create_infos.push_back(device_queue_create_info);
+    }
+
+    std::vector<const char*> extensions = {
+        VK_KHR_SWAPCHAIN_EXTENSION_NAME,
+    };
+
+    VkDeviceCreateInfo create_info = {
+        .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
+        .queueCreateInfoCount = static_cast<uint32_t>(device_queue_create_infos.size()),
+        .pQueueCreateInfos = device_queue_create_infos.data(),
+        .enabledLayerCount = 0,
+        .ppEnabledLayerNames = nullptr,
+        .enabledExtensionCount = static_cast<uint32_t>(extensions.size()),
+        .ppEnabledExtensionNames = extensions.data(),
+        .pEnabledFeatures = nullptr,
+    };
+
+    VkDevice device = VK_NULL_HANDLE;
+    auto result = vkCreateDevice(physical_device, &create_info, nullptr, &device);
+    VK_ASSERT(result);
+
+    return device;
+}
+
 Renderer::Renderer(const Window& window)
 {
     VK_ASSERT(volkInitialize());
@@ -179,10 +225,15 @@ Renderer::Renderer(const Window& window)
     auto [physical_device, queue_families] = select_physical_device(m_instance, m_surface);
     m_physical_device = physical_device;
     m_queue_families = queue_families;
+    m_device = create_device(m_physical_device, m_queue_families);
 }
 
 Renderer::~Renderer()
 {
+    if (m_device) {
+        vkDestroyDevice(m_device, nullptr);
+    }
+
     if (m_instance) {
         vkDestroySurfaceKHR(m_instance, m_surface, nullptr);
         vkDestroyDebugUtilsMessengerEXT(m_instance, m_debug_messenger, nullptr);
