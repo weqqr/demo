@@ -27,5 +27,8 @@ private:
     VkPhysicalDevice m_physical_device = VK_NULL_HANDLE;
     QueueFamilies m_queue_families = {};
     VkDevice m_device = VK_NULL_HANDLE;
+    VkQueue m_graphics = VK_NULL_HANDLE;
+    VkQueue m_compute = VK_NULL_HANDLE;
+    VkQueue m_present = VK_NULL_HANDLE;
 };
 }

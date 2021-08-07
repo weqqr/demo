@@ -226,6 +226,9 @@ Renderer::Renderer(const Window& window)
     m_physical_device = physical_device;
     m_queue_families = queue_families;
     m_device = create_device(m_physical_device, m_queue_families);
+    vkGetDeviceQueue(m_device, m_queue_families.graphics, 0, &m_graphics);
+    vkGetDeviceQueue(m_device, m_queue_families.compute, 0, &m_compute);
+    vkGetDeviceQueue(m_device, m_queue_families.present, 0, &m_present);
 }
 
 Renderer::~Renderer()
