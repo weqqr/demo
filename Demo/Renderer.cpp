@@ -99,6 +99,80 @@ static VkSurfaceKHR create_surface(VkInstance instance, const Window& window)
     return surface;
 }
 
+QueueFamilies::QueueFamilies(VkPhysicalDevice device, VkSurfaceKHR surface)
+{
+    uint32_t count = 0;
+    vkGetPhysicalDeviceQueueFamilyProperties(device, &count, nullptr);
+    std::vector<VkQueueFamilyProperties> properties(count);
+    vkGetPhysicalDeviceQueueFamilyProperties(device, &count, properties.data());
+
+    for (uint32_t family_index = 0; family_index < properties.size(); family_index++) {
+        const auto& family = properties[family_index];
+        bool supports_graphics = family.queueFlags & VK_QUEUE_GRAPHICS_BIT;
+        bool supports_compute = family.queueFlags & VK_QUEUE_COMPUTE_BIT;
+
+        if (supports_graphics)
+            graphics = family_index;
+
+        if (supports_compute)
+            compute = family_index;
+
+        VkBool32 supports_surface = VK_FALSE;
+        vkGetPhysicalDeviceSurfaceSupportKHR(device, family_index, surface, &supports_surface);
+        if (supports_surface) {
+            present = family_index;
+        }
+
+        log("Queue #{}: graphics={}, compute={}, present={}", family_index, supports_graphics, supports_compute, supports_surface);
+    }
+
+    log("Chosen queue families: graphics={}, compute={}, present={}", graphics, compute, present);
+}
+
+static std::pair<VkPhysicalDevice, QueueFamilies> select_physical_device(VkInstance instance, VkSurfaceKHR surface)
+{
+    uint32_t count = 0;
+    vkEnumeratePhysicalDevices(instance, &count, nullptr);
+    std::vector<VkPhysicalDevice> devices(count);
+    vkEnumeratePhysicalDevices(instance, &count, devices.data());
+
+    ASSERT(count > 0);
+
+    for (auto device : devices) {
+        VkPhysicalDeviceProperties properties = {};
+        vkGetPhysicalDeviceProperties(device, &properties);
+
+        VkPhysicalDeviceMemoryProperties memory_properties = {};
+        vkGetPhysicalDeviceMemoryProperties(device, &memory_properties);
+
+        QueueFamilies queue_families(device, surface);
+
+        bool has_graphics = queue_families.graphics != VK_QUEUE_FAMILY_IGNORED;
+        bool has_compute = queue_families.compute != VK_QUEUE_FAMILY_IGNORED;
+        bool has_present = queue_families.present != VK_QUEUE_FAMILY_IGNORED;
+
+        if (!(has_graphics && has_compute && has_present)) {
+            continue;
+        }
+
+        uint64_t total_memory = 0;
+        for (auto heap : memory_properties.memoryHeaps) {
+            if (heap.flags & VK_MEMORY_HEAP_DEVICE_LOCAL_BIT) {
+                total_memory += heap.size;
+            }
+        }
+
+        auto device_type = properties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU ? "discrete" : "non-discrete";
+        log("DeviceName={}", properties.deviceName);
+        log("DeviceType={}", device_type);
+        log("LocalMemory={}MiB", total_memory / 1024 / 1024);
+
+        return {device, queue_families};
+    }
+
+    PANIC("No devices found");
+}
+
 Renderer::Renderer(const Window& window)
 {
     VK_ASSERT(volkInitialize());
@@ -107,6 +181,9 @@ Renderer::Renderer(const Window& window)
     volkLoadInstance(m_instance);
     m_debug_messenger = create_debug_messenger(m_instance);
     m_surface = create_surface(m_instance, window);
+    auto [physical_device, queue_families] = select_physical_device(m_instance, m_surface);
+    m_physical_device = physical_device;
+    m_queue_families = queue_families;
 }
 
 Renderer::~Renderer()
@@ -117,5 +194,4 @@ Renderer::~Renderer()
         vkDestroyInstance(m_instance, nullptr);
     }
 }
-
 }

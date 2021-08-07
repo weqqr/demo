@@ -10,11 +10,11 @@
 namespace DM::Impl {
 [[noreturn]] static void _break()
 {
-#ifndef NDEBUG
+#ifdef NDEBUG
     exit(1);
-    __debugbreak();
 #else
     exit(1);
+    __debugbreak();
 #endif
 }
 

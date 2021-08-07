@@ -22,7 +22,7 @@ void log(LogLevel level, const char* format, const fmt::format_args& args)
         break;
     }
 
-    fmt::print("{}: {}", level_text, text);
+    fmt::print("{}: {}\n", level_text, text);
 
     if (level == LogLevel::Fatal) {
 #if NDEBUG
