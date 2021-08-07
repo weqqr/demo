@@ -48,17 +48,14 @@ VkBool32 VKAPI_PTR debug_messenger_callback(
     void* user_data)
 {
     switch (severity) {
-    case VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT:
-        log(LogLevel::Info, "{}", data->pMessage);
-        break;
-    case VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT:
-        log(LogLevel::Warning, "{}", data->pMessage);
-        break;
     case VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT:
-        log(LogLevel::Error, "{}", data->pMessage);
+        error("{}", data->pMessage);
         break;
+
+    case VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT:
+    case VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT:
     default:
-        log("{}", data->pMessage);
+        warning("{}", data->pMessage);
     }
 
     return VK_FALSE;
@@ -123,10 +120,10 @@ QueueFamilies::QueueFamilies(VkPhysicalDevice device, VkSurfaceKHR surface)
             present = family_index;
         }
 
-        log("Queue #{}: graphics={}, compute={}, present={}", family_index, supports_graphics, supports_compute, supports_surface);
+        debug("Queue #{}: graphics={}, compute={}, present={}", family_index, supports_graphics, supports_compute, supports_surface);
     }
 
-    log("Chosen queue families: graphics={}, compute={}, present={}", graphics, compute, present);
+    debug("Chosen queue families: graphics={}, compute={}, present={}", graphics, compute, present);
 }
 
 static std::pair<VkPhysicalDevice, QueueFamilies> select_physical_device(VkInstance instance, VkSurfaceKHR surface)
@@ -162,10 +159,8 @@ static std::pair<VkPhysicalDevice, QueueFamilies> select_physical_device(VkInsta
             }
         }
 
-        auto device_type = properties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU ? "discrete" : "non-discrete";
-        log("DeviceName={}", properties.deviceName);
-        log("DeviceType={}", device_type);
-        log("LocalMemory={}MiB", total_memory / 1024 / 1024);
+        info("GPU: {}", properties.deviceName);
+        info("GPU Memory: {} MiB", total_memory / 1024 / 1024);
 
         return {device, queue_families};
     }

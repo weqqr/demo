@@ -8,6 +8,9 @@ void log(LogLevel level, const char* format, const fmt::format_args& args)
     const char* level_text = "";
 
     switch (level) {
+    case LogLevel::Debug:
+        level_text = "DEBUG";
+        break;
     case LogLevel::Info:
         level_text = " INFO";
         break;
@@ -17,19 +20,8 @@ void log(LogLevel level, const char* format, const fmt::format_args& args)
     case LogLevel::Error:
         level_text = "ERROR";
         break;
-    case LogLevel::Fatal:
-        level_text = "FATAL";
-        break;
     }
 
     fmt::print("{}: {}\n", level_text, text);
-
-    if (level == LogLevel::Fatal) {
-#if NDEBUG
-        exit(1);
-#else
-        __debugbreak();
-#endif
-    }
 }
 }
