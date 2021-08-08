@@ -214,6 +214,42 @@ static VkDevice create_device(VkPhysicalDevice physical_device, QueueFamilies qu
     return device;
 }
 
+VkSwapchainKHR create_swapchain(VkPhysicalDevice physical_device, QueueFamilies queue_families, VkDevice device, VkSurfaceKHR surface, Size size)
+{
+    VkSurfaceCapabilitiesKHR capabilities = {};
+    vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physical_device, surface, &capabilities);
+
+    VkExtent2D swapchain_extent = {
+        .width = std::clamp(size.width, capabilities.minImageExtent.width, capabilities.maxImageExtent.width),
+        .height = std::clamp(size.height, capabilities.minImageExtent.height, capabilities.maxImageExtent.height),
+    };
+
+    VkSwapchainCreateInfoKHR create_info = {
+        .sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
+        .surface = surface,
+        .minImageCount = capabilities.minImageCount + 1,
+        .imageFormat = VK_FORMAT_B8G8R8A8_SRGB,
+        .imageColorSpace = VK_COLORSPACE_SRGB_NONLINEAR_KHR,
+        .imageExtent = swapchain_extent,
+        .imageArrayLayers = 1,
+        .imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
+        .imageSharingMode = VK_SHARING_MODE_EXCLUSIVE,
+        .queueFamilyIndexCount = 1,
+        .pQueueFamilyIndices = &queue_families.present,
+        .preTransform = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR,
+        .compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR,
+        .presentMode = VK_PRESENT_MODE_FIFO_KHR,
+        .clipped = VK_TRUE,
+        .oldSwapchain = VK_NULL_HANDLE,
+    };
+
+    VkSwapchainKHR swapchain = VK_NULL_HANDLE;
+    auto result = vkCreateSwapchainKHR(device, &create_info, nullptr, &swapchain);
+    VK_ASSERT(result);
+
+    return swapchain;
+}
+
 Renderer::Renderer(const Window& window)
 {
     VK_ASSERT(volkInitialize());
@@ -229,11 +265,14 @@ Renderer::Renderer(const Window& window)
     vkGetDeviceQueue(m_device, m_queue_families.graphics, 0, &m_graphics);
     vkGetDeviceQueue(m_device, m_queue_families.compute, 0, &m_compute);
     vkGetDeviceQueue(m_device, m_queue_families.present, 0, &m_present);
+
+    m_swapchain = create_swapchain(m_physical_device, m_queue_families, m_device, m_surface, window.size());
 }
 
 Renderer::~Renderer()
 {
     if (m_device) {
+        vkDestroySwapchainKHR(m_device, m_swapchain, nullptr);
         vkDestroyDevice(m_device, nullptr);
     }
 

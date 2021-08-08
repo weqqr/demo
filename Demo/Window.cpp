@@ -35,4 +35,16 @@ bool Window::key_pressed(int key) const
 {
     return glfwGetKey(m_window, key) == GLFW_PRESS;
 }
+
+Size Window::size() const
+{
+    int width = 0;
+    int height = 0;
+
+    glfwGetFramebufferSize(m_window, &width, &height);
+
+    ASSERT(width >= 0 && height >= 0);
+
+    return {static_cast<uint32_t>(width), static_cast<uint32_t>(height)};
+}
 }

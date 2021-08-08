@@ -30,5 +30,6 @@ private:
     VkQueue m_graphics = VK_NULL_HANDLE;
     VkQueue m_compute = VK_NULL_HANDLE;
     VkQueue m_present = VK_NULL_HANDLE;
+    VkSwapchainKHR m_swapchain = VK_NULL_HANDLE;
 };
 }

@@ -29,6 +29,7 @@ public:
     bool close_requested() const;
     void* raw_handle() const;
     bool key_pressed(int key) const;
+    Size size() const;
 
 private:
     GLFWwindow* m_window = nullptr;
