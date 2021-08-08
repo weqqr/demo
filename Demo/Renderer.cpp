@@ -267,11 +267,49 @@ Renderer::Renderer(const Window& window)
     vkGetDeviceQueue(m_device, m_queue_families.present, 0, &m_present);
 
     m_swapchain = create_swapchain(m_physical_device, m_queue_families, m_device, m_surface, window.size());
+
+    uint32_t count = 0;
+    vkGetSwapchainImagesKHR(m_device, m_swapchain, &count, nullptr);
+    m_swapchain_images.resize(count);
+    vkGetSwapchainImagesKHR(m_device, m_swapchain, &count, m_swapchain_images.data());
+
+    for (auto image : m_swapchain_images) {
+        VkImageViewCreateInfo create_info = {
+            .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+            .image = image,
+            .viewType = VK_IMAGE_VIEW_TYPE_2D,
+            .format = VK_FORMAT_B8G8R8A8_SRGB,
+            .components = {
+                .r = VK_COMPONENT_SWIZZLE_IDENTITY,
+                .g = VK_COMPONENT_SWIZZLE_IDENTITY,
+                .b = VK_COMPONENT_SWIZZLE_IDENTITY,
+                .a = VK_COMPONENT_SWIZZLE_IDENTITY,
+            },
+            .subresourceRange = {
+                .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                .baseMipLevel = 0,
+                .levelCount = 1,
+                .baseArrayLayer = 0,
+                .layerCount = 1,
+            },
+        };
+
+        VkImageView view = VK_NULL_HANDLE;
+        auto result = vkCreateImageView(m_device, &create_info, nullptr, &view);
+
+        VK_ASSERT(result);
+
+        m_swapchain_image_views.push_back(view);
+    }
 }
 
 Renderer::~Renderer()
 {
     if (m_device) {
+        for (auto view : m_swapchain_image_views) {
+            vkDestroyImageView(m_device, view, nullptr);
+        }
+
         vkDestroySwapchainKHR(m_device, m_swapchain, nullptr);
         vkDestroyDevice(m_device, nullptr);
     }

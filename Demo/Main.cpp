@@ -30,11 +30,9 @@ void run()
 
 int main()
 {
-    using namespace Demo;
-
-    init();
-    run();
-    terminate();
+    Demo::init();
+    Demo::run();
+    Demo::terminate();
 
     return 0;
 }

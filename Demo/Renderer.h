@@ -2,6 +2,7 @@
 
 #include <DM/Types.h>
 #include <volk.h>
+#include <vector>
 
 namespace Demo {
 class Window;
@@ -31,5 +32,8 @@ private:
     VkQueue m_compute = VK_NULL_HANDLE;
     VkQueue m_present = VK_NULL_HANDLE;
     VkSwapchainKHR m_swapchain = VK_NULL_HANDLE;
+
+    std::vector<VkImage> m_swapchain_images;
+    std::vector<VkImageView> m_swapchain_image_views;
 };
 }
