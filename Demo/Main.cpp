@@ -22,7 +22,7 @@ void run()
     Window window("Demo", {1280, 720});
     Renderer renderer(window);
 
-    while (!window.close_requested()) {
+    while (!window.close_requested() && !window.key_pressed(GLFW_KEY_ESCAPE)) {
         glfwPollEvents();
     }
 }

@@ -30,4 +30,9 @@ void* Window::raw_handle() const
 {
     return glfwGetWin32Window(m_window);
 }
+
+bool Window::key_pressed(int key) const
+{
+    return glfwGetKey(m_window, key) == GLFW_PRESS;
+}
 }
