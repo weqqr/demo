@@ -1,6 +1,20 @@
 #include <DM/Log.h>
 #include <fmt/format.h>
 
+#define DM_COLORED_OUTPUT 1
+
+#if DM_COLORED_OUTPUT
+#define DM_RED "\033[0;31m"
+#define DM_GREEN "\033[0;32m"
+#define DM_YELLOW "\033[0;33m"
+#define DM_RESET "\033[0m"
+#else
+#define DM_RED ""
+#define DM_GREEN ""
+#define DM_YELLOW ""
+#define DM_RESET ""
+#endif
+
 namespace DM::Impl {
 void log(LogLevel level, const char* format, const fmt::format_args& args)
 {
@@ -12,13 +26,13 @@ void log(LogLevel level, const char* format, const fmt::format_args& args)
         level_text = "DEBUG";
         break;
     case LogLevel::Info:
-        level_text = " INFO";
+        level_text = DM_GREEN " INFO" DM_RESET;
         break;
     case LogLevel::Warning:
-        level_text = " WARN";
+        level_text = DM_YELLOW " WARN" DM_RESET;
         break;
     case LogLevel::Error:
-        level_text = "ERROR";
+        level_text = DM_RED "ERROR" DM_RESET;
         break;
     }
 

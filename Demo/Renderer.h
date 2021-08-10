@@ -35,5 +35,7 @@ private:
 
     std::vector<VkImage> m_swapchain_images;
     std::vector<VkImageView> m_swapchain_image_views;
+
+    VkCommandPool m_command_pool = VK_NULL_HANDLE;
 };
 }

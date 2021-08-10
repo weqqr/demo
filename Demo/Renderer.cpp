@@ -250,6 +250,21 @@ VkSwapchainKHR create_swapchain(VkPhysicalDevice physical_device, QueueFamilies 
     return swapchain;
 }
 
+static VkCommandPool create_command_pool(VkDevice device, uint32_t family_index)
+{
+    VkCommandPoolCreateInfo create_info = {
+        .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
+        .flags = 0,
+        .queueFamilyIndex = family_index,
+    };
+
+    VkCommandPool pool = VK_NULL_HANDLE;
+    auto result = vkCreateCommandPool(device, &create_info, nullptr, &pool);
+    VK_ASSERT(result);
+
+    return pool;
+}
+
 Renderer::Renderer(const Window& window)
 {
     VK_ASSERT(volkInitialize());
@@ -301,11 +316,15 @@ Renderer::Renderer(const Window& window)
 
         m_swapchain_image_views.push_back(view);
     }
+
+    m_command_pool = create_command_pool(m_device, m_queue_families.present);
 }
 
 Renderer::~Renderer()
 {
     if (m_device) {
+        vkDestroyCommandPool(m_device, m_command_pool, nullptr);
+
         for (auto view : m_swapchain_image_views) {
             vkDestroyImageView(m_device, view, nullptr);
         }
