@@ -169,7 +169,7 @@ static std::pair<VkPhysicalDevice, QueueFamilies> select_physical_device(VkInsta
     PANIC("No devices found");
 }
 
-static VkDevice create_device(VkPhysicalDevice physical_device, QueueFamilies queue_families)
+static std::vector<uint32_t> unique_families(QueueFamilies queue_families)
 {
     std::vector<uint32_t> families = {
         queue_families.graphics,
@@ -177,7 +177,15 @@ static VkDevice create_device(VkPhysicalDevice physical_device, QueueFamilies qu
         queue_families.present,
     };
 
+    std::sort(families.begin(), families.end());
     families.erase(std::unique(families.begin(), families.end()), families.end());
+
+    return families;
+}
+
+static VkDevice create_device(VkPhysicalDevice physical_device, QueueFamilies queue_families)
+{
+    auto families = unique_families(queue_families);
 
     std::vector<VkDeviceQueueCreateInfo> device_queue_create_infos;
     float priority = 1.0f;
@@ -224,6 +232,10 @@ VkSwapchainKHR create_swapchain(VkPhysicalDevice physical_device, QueueFamilies 
         .height = std::clamp(size.height, capabilities.minImageExtent.height, capabilities.maxImageExtent.height),
     };
 
+    auto families = unique_families(queue_families);
+
+    auto sharing_mode = families.size() == 1 ? VK_SHARING_MODE_EXCLUSIVE : VK_SHARING_MODE_CONCURRENT;
+
     VkSwapchainCreateInfoKHR create_info = {
         .sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
         .surface = surface,
@@ -233,9 +245,9 @@ VkSwapchainKHR create_swapchain(VkPhysicalDevice physical_device, QueueFamilies 
         .imageExtent = swapchain_extent,
         .imageArrayLayers = 1,
         .imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
-        .imageSharingMode = VK_SHARING_MODE_EXCLUSIVE,
-        .queueFamilyIndexCount = 1,
-        .pQueueFamilyIndices = &queue_families.present,
+        .imageSharingMode = sharing_mode,
+        .queueFamilyIndexCount = static_cast<uint32_t>(families.size()),
+        .pQueueFamilyIndices = families.data(),
         .preTransform = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR,
         .compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR,
         .presentMode = VK_PRESENT_MODE_FIFO_KHR,
