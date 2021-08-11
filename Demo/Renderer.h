@@ -20,6 +20,7 @@ class Renderer : DM::NonCopyable {
 public:
     explicit Renderer(const Window& window);
     ~Renderer();
+    void render();
 
 private:
     VkInstance m_instance = VK_NULL_HANDLE;
@@ -37,5 +38,9 @@ private:
     std::vector<VkImageView> m_swapchain_image_views;
 
     VkCommandPool m_command_pool = VK_NULL_HANDLE;
+
+    VkSemaphore m_rendering_finished = VK_NULL_HANDLE;
+    VkSemaphore m_next_image_acquired = VK_NULL_HANDLE;
+    VkFence m_gpu_work_finished = VK_NULL_HANDLE;
 };
 }

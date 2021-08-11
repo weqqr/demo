@@ -277,6 +277,35 @@ static VkCommandPool create_command_pool(VkDevice device, uint32_t family_index)
     return pool;
 }
 
+static VkSemaphore create_semaphore(VkDevice device)
+{
+    VkSemaphoreCreateInfo create_info = {
+        .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
+    };
+
+    VkSemaphore semaphore = VK_NULL_HANDLE;
+    auto result = vkCreateSemaphore(device, &create_info, nullptr, &semaphore);
+    VK_ASSERT(result);
+
+    return semaphore;
+}
+
+static VkFence create_fence(VkDevice device, bool signaled = false)
+{
+    VkFenceCreateFlags flags = signaled ? VK_FENCE_CREATE_SIGNALED_BIT : 0;
+
+    VkFenceCreateInfo create_info = {
+        .sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
+        .flags = flags,
+    };
+
+    VkFence fence = VK_NULL_HANDLE;
+    auto result = vkCreateFence(device, &create_info, nullptr, &fence);
+    VK_ASSERT(result);
+
+    return fence;
+}
+
 Renderer::Renderer(const Window& window)
 {
     VK_ASSERT(volkInitialize());
@@ -329,12 +358,20 @@ Renderer::Renderer(const Window& window)
         m_swapchain_image_views.push_back(view);
     }
 
-    m_command_pool = create_command_pool(m_device, m_queue_families.present);
+    m_command_pool = create_command_pool(m_device, m_queue_families.graphics);
+
+    m_rendering_finished = create_semaphore(m_device);
+    m_next_image_acquired = create_semaphore(m_device);
+    m_gpu_work_finished = create_fence(m_device, false);
 }
 
 Renderer::~Renderer()
 {
     if (m_device) {
+        vkDestroyFence(m_device, m_gpu_work_finished, nullptr);
+        vkDestroySemaphore(m_device, m_next_image_acquired, nullptr);
+        vkDestroySemaphore(m_device, m_rendering_finished, nullptr);
+
         vkDestroyCommandPool(m_device, m_command_pool, nullptr);
 
         for (auto view : m_swapchain_image_views) {
@@ -350,5 +387,139 @@ Renderer::~Renderer()
         vkDestroyDebugUtilsMessengerEXT(m_instance, m_debug_messenger, nullptr);
         vkDestroyInstance(m_instance, nullptr);
     }
+}
+
+void Renderer::render()
+{
+    uint32_t image_index = 0;
+    VK_ASSERT(vkAcquireNextImageKHR(m_device, m_swapchain, 5000000000, m_next_image_acquired, VK_NULL_HANDLE, &image_index));
+
+    VkCommandBufferAllocateInfo cmd_allocate_info = {
+        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
+        .commandPool = m_command_pool,
+        .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
+        .commandBufferCount = 1,
+    };
+
+    VkAttachmentDescription attachment = {
+        .format = VK_FORMAT_B8G8R8A8_SRGB,
+        .samples = VK_SAMPLE_COUNT_1_BIT,
+        .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
+        .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+        .stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+        .stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
+        .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+        .finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+    };
+
+    VkAttachmentReference attachment_ref = {
+        .attachment = 0,
+        .layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+    };
+
+    VkSubpassDescription sp = {
+        .pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS,
+        .inputAttachmentCount = 0,
+        .pInputAttachments = nullptr,
+        .colorAttachmentCount = 1,
+        .pColorAttachments = &attachment_ref,
+        .pResolveAttachments = nullptr,
+        .pDepthStencilAttachment = nullptr,
+        .preserveAttachmentCount = 0,
+        .pPreserveAttachments = nullptr,
+    };
+
+    VkRenderPassCreateInfo rp_create_info = {
+        .sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO,
+        .attachmentCount = 1,
+        .pAttachments = &attachment,
+        .subpassCount = 1,
+        .pSubpasses = &sp,
+        .dependencyCount = 0,
+        .pDependencies = nullptr,
+    };
+
+    VkRenderPass rp = VK_NULL_HANDLE;
+    auto result = vkCreateRenderPass(m_device, &rp_create_info, nullptr, &rp);
+    VK_ASSERT(result);
+
+    VkFramebufferCreateInfo fb_create_info = {
+        .sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,
+        .renderPass = rp,
+        .attachmentCount = 1,
+        .pAttachments = &m_swapchain_image_views[image_index],
+        .width = 1280,
+        .height = 720,
+        .layers = 1,
+    };
+
+    VkFramebuffer fb = VK_NULL_HANDLE;
+    result = vkCreateFramebuffer(m_device, &fb_create_info, nullptr, &fb);
+    VK_ASSERT(result);
+
+    VkCommandBuffer cmd = VK_NULL_HANDLE;
+    result = vkAllocateCommandBuffers(m_device, &cmd_allocate_info, &cmd);
+
+    VkCommandBufferBeginInfo cmd_begin_info = {
+        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+        .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
+    };
+
+    VK_ASSERT(vkBeginCommandBuffer(cmd, &cmd_begin_info));
+    {
+        VkClearValue clear_value = {
+            .color = { 0.5f, 0.7f, 0.9f, 1.0f },
+        };
+
+        VkRenderPassBeginInfo rp_begin_info = {
+            .sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
+            .renderPass = rp,
+            .framebuffer = fb,
+            .renderArea = {
+                .offset = { 0, 0 },
+                .extent = { 1280, 720 },
+            },
+            .clearValueCount = 1,
+            .pClearValues = &clear_value,
+        };
+
+        vkCmdBeginRenderPass(cmd, &rp_begin_info, VK_SUBPASS_CONTENTS_INLINE);
+        vkCmdEndRenderPass(cmd);
+    }
+    VK_ASSERT(vkEndCommandBuffer(cmd));
+
+    VkPipelineStageFlags stage_mask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    VkSubmitInfo submit_info = {
+        .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+        .waitSemaphoreCount = 1,
+        .pWaitSemaphores = &m_next_image_acquired,
+        .pWaitDstStageMask = &stage_mask,
+        .commandBufferCount = 1,
+        .pCommandBuffers = &cmd,
+        .signalSemaphoreCount = 1,
+        .pSignalSemaphores = &m_rendering_finished,
+    };
+
+    VK_ASSERT(vkQueueSubmit(m_graphics, 1, &submit_info, m_gpu_work_finished));
+
+    VkPresentInfoKHR present_info = {
+        .sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
+        .waitSemaphoreCount = 1,
+        .pWaitSemaphores = &m_rendering_finished,
+        .swapchainCount = 1,
+        .pSwapchains = &m_swapchain,
+        .pImageIndices = &image_index,
+        .pResults = nullptr,
+    };
+
+    VK_ASSERT(vkQueuePresentKHR(m_present, &present_info));
+
+    VK_ASSERT(vkWaitForFences(m_device, 1, &m_gpu_work_finished, VK_TRUE, 5000000000));
+    vkResetFences(m_device, 1, &m_gpu_work_finished);
+
+    vkFreeCommandBuffers(m_device, m_command_pool, 1, &cmd);
+    vkResetCommandPool(m_device, m_command_pool, 0);
+    vkDestroyFramebuffer(m_device, fb, nullptr);
+    vkDestroyRenderPass(m_device, rp, nullptr);
 }
 }
