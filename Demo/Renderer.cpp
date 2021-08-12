@@ -3,12 +3,15 @@
 #include <Demo/Renderer.h>
 #include <Demo/Window.h>
 #include <algorithm>
+#include <array>
 #include <vector>
+#include <span>
 #include <windows.h> // GetModuleHandle
 
 #define VK_ASSERT(condition) ASSERT((condition) == VK_SUCCESS)
 
 namespace Demo {
+constexpr uint64_t TIMEOUT = 5'000'000'000; // 5 seconds (in nanoseconds)
 static VkInstance create_instance()
 {
     std::vector<const char*> extensions = {
@@ -204,8 +207,18 @@ static VkDevice create_device(VkPhysicalDevice physical_device, QueueFamilies qu
         VK_KHR_SWAPCHAIN_EXTENSION_NAME,
     };
 
+    VkPhysicalDeviceFeatures features = {
+
+    };
+
+    VkPhysicalDeviceVulkan12Features features_12 = {
+        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES,
+        .imagelessFramebuffer = VK_TRUE,
+    };
+
     VkDeviceCreateInfo create_info = {
         .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
+        .pNext = &features_12,
         .queueCreateInfoCount = static_cast<uint32_t>(device_queue_create_infos.size()),
         .pQueueCreateInfos = device_queue_create_infos.data(),
         .enabledLayerCount = 0,
@@ -389,17 +402,37 @@ Renderer::~Renderer()
     }
 }
 
-void Renderer::render()
+template<typename F>
+VkCommandBuffer record_command_buffer(VkDevice device, VkCommandPool pool, F f)
 {
-    uint32_t image_index = 0;
-    VK_ASSERT(vkAcquireNextImageKHR(m_device, m_swapchain, 5000000000, m_next_image_acquired, VK_NULL_HANDLE, &image_index));
-
     VkCommandBufferAllocateInfo cmd_allocate_info = {
         .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
-        .commandPool = m_command_pool,
+        .commandPool = pool,
         .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
         .commandBufferCount = 1,
     };
+
+    VkCommandBuffer cmd = VK_NULL_HANDLE;
+    auto result = vkAllocateCommandBuffers(device, &cmd_allocate_info, &cmd);
+
+    VkCommandBufferBeginInfo cmd_begin_info = {
+        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+        .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
+    };
+
+    VK_ASSERT(vkBeginCommandBuffer(cmd, &cmd_begin_info));
+
+    f(cmd);
+
+    VK_ASSERT(vkEndCommandBuffer(cmd));
+
+    return cmd;
+}
+
+void Renderer::render()
+{
+    uint32_t image_index = 0;
+    VK_ASSERT(vkAcquireNextImageKHR(m_device, m_swapchain, TIMEOUT, m_next_image_acquired, VK_NULL_HANDLE, &image_index));
 
     VkAttachmentDescription attachment = {
         .format = VK_FORMAT_B8G8R8A8_SRGB,
@@ -443,11 +476,31 @@ void Renderer::render()
     auto result = vkCreateRenderPass(m_device, &rp_create_info, nullptr, &rp);
     VK_ASSERT(result);
 
+    auto format = VK_FORMAT_B8G8R8A8_SRGB;
+
+    VkFramebufferAttachmentImageInfo fb_attachment_image_info = {
+        .sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_ATTACHMENT_IMAGE_INFO,
+        .usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
+        .width = 1280,
+        .height = 720,
+        .layerCount = 1,
+        .viewFormatCount = 1,
+        .pViewFormats = &format,
+    };
+
+    VkFramebufferAttachmentsCreateInfo fb_attachments_create_info = {
+        .sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_ATTACHMENTS_CREATE_INFO,
+        .attachmentImageInfoCount = 1,
+        .pAttachmentImageInfos = &fb_attachment_image_info,
+    };
+
     VkFramebufferCreateInfo fb_create_info = {
         .sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,
+        .pNext = &fb_attachments_create_info,
+        .flags = VK_FRAMEBUFFER_CREATE_IMAGELESS_BIT,
         .renderPass = rp,
         .attachmentCount = 1,
-        .pAttachments = &m_swapchain_image_views[image_index],
+        .pAttachments = nullptr,
         .width = 1280,
         .height = 720,
         .layers = 1,
@@ -457,22 +510,20 @@ void Renderer::render()
     result = vkCreateFramebuffer(m_device, &fb_create_info, nullptr, &fb);
     VK_ASSERT(result);
 
-    VkCommandBuffer cmd = VK_NULL_HANDLE;
-    result = vkAllocateCommandBuffers(m_device, &cmd_allocate_info, &cmd);
-
-    VkCommandBufferBeginInfo cmd_begin_info = {
-        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
-        .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
-    };
-
-    VK_ASSERT(vkBeginCommandBuffer(cmd, &cmd_begin_info));
-    {
+    auto cmd = record_command_buffer(m_device, m_command_pool, [&](auto cmd) {
         VkClearValue clear_value = {
             .color = { 0.5f, 0.7f, 0.9f, 1.0f },
         };
 
+        VkRenderPassAttachmentBeginInfo rp_attachment_begin_info = {
+            .sType = VK_STRUCTURE_TYPE_RENDER_PASS_ATTACHMENT_BEGIN_INFO,
+            .attachmentCount = 1,
+            .pAttachments = &m_swapchain_image_views[image_index],
+        };
+
         VkRenderPassBeginInfo rp_begin_info = {
             .sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
+            .pNext = &rp_attachment_begin_info,
             .renderPass = rp,
             .framebuffer = fb,
             .renderArea = {
@@ -485,8 +536,7 @@ void Renderer::render()
 
         vkCmdBeginRenderPass(cmd, &rp_begin_info, VK_SUBPASS_CONTENTS_INLINE);
         vkCmdEndRenderPass(cmd);
-    }
-    VK_ASSERT(vkEndCommandBuffer(cmd));
+    });
 
     VkPipelineStageFlags stage_mask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
     VkSubmitInfo submit_info = {
@@ -514,7 +564,7 @@ void Renderer::render()
 
     VK_ASSERT(vkQueuePresentKHR(m_present, &present_info));
 
-    VK_ASSERT(vkWaitForFences(m_device, 1, &m_gpu_work_finished, VK_TRUE, 5000000000));
+    VK_ASSERT(vkWaitForFences(m_device, 1, &m_gpu_work_finished, VK_TRUE, TIMEOUT));
     vkResetFences(m_device, 1, &m_gpu_work_finished);
 
     vkFreeCommandBuffers(m_device, m_command_pool, 1, &cmd);
