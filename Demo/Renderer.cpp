@@ -4,6 +4,8 @@
 #include <Demo/Window.h>
 #include <windows.h> // GetModuleHandle
 
+#include <vk_mem_alloc.h>
+
 #include <algorithm>
 #include <array>
 #include <fstream>
@@ -445,6 +447,7 @@ RenderPass::RenderPass(const RenderPassDesc& desc)
 }
 #pragma endregion
 
+#pragma region pipeline
 static VkShaderModule create_shader_module(VkDevice device, std::span<uint8_t> spirv_bytes)
 {
     VkShaderModuleCreateInfo create_info = {
@@ -613,6 +616,8 @@ static VkPipeline create_pipeline(VkDevice device, VkRenderPass render_pass, Siz
 
     return pipeline;
 }
+
+#pragma endregion
 
 Renderer::Renderer(const Window& window)
 {

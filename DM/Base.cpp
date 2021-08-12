@@ -18,7 +18,7 @@ namespace DM::Impl {
 #endif
 }
 
-void assert(bool condition, const char* condition_text, const char* file, size_t line, const char* message)
+void assert_handler(bool condition, const char* condition_text, const char* file, size_t line, const char* message)
 {
     if (!condition) {
         fprintf(stderr, "Assertion failed: %s\n", message);
@@ -27,13 +27,13 @@ void assert(bool condition, const char* condition_text, const char* file, size_t
     }
 }
 
-[[noreturn]] void unreachable(const char* file, size_t line)
+[[noreturn]] void unreachable_handler(const char* file, size_t line)
 {
     fprintf(stderr, "%s:%llu: Execution reached supposedly unreachable point\n", file, line);
     _break();
 }
 
-[[noreturn]] void panic(const char* file, size_t line, const char* message)
+[[noreturn]] void panic_handler(const char* file, size_t line, const char* message)
 {
     fprintf(stderr, "panic:\n");
     fprintf(stderr, "%s:%llu: %s\n", file, line, message);

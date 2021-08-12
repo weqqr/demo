@@ -5,6 +5,7 @@ add_compile_definitions(VK_USE_PLATFORM_WIN32_KHR)
 
 add_subdirectory(Vendor/fmt)
 add_subdirectory(Vendor/glfw)
+add_subdirectory(Vendor/vma)
 add_subdirectory(Vendor/volk)
 
 #   DM   #######################################################################
@@ -48,4 +49,4 @@ add_executable(Demo
 add_dependencies(Demo DemoShaders)
 target_compile_features(Demo PUBLIC cxx_std_20)
 target_include_directories(Demo PUBLIC ${CMAKE_CURRENT_LIST_DIR})
-target_link_libraries(Demo DM glfw volk)
+target_link_libraries(Demo DM glfw vma volk)
