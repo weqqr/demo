@@ -2,11 +2,12 @@
 #include <DM/Log.h>
 #include <Demo/Renderer.h>
 #include <Demo/Window.h>
+#include <windows.h> // GetModuleHandle
+
 #include <algorithm>
 #include <array>
-#include <vector>
 #include <span>
-#include <windows.h> // GetModuleHandle
+#include <vector>
 
 #define VK_ASSERT(condition) ASSERT((condition) == VK_SUCCESS)
 
@@ -67,8 +68,15 @@ VkBool32 VKAPI_PTR debug_messenger_callback(
 
 static VkDebugUtilsMessengerEXT create_debug_messenger(VkInstance instance)
 {
-    VkFlags severity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT;
-    VkFlags message_type = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
+    VkFlags severity
+        = VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT
+        | VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT
+        | VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT;
+
+    VkFlags message_type
+        = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT
+        | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT
+        | VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
 
     VkDebugUtilsMessengerCreateInfoEXT create_info = {
         .sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT,
@@ -207,18 +215,14 @@ static VkDevice create_device(VkPhysicalDevice physical_device, QueueFamilies qu
         VK_KHR_SWAPCHAIN_EXTENSION_NAME,
     };
 
-    VkPhysicalDeviceFeatures features = {
-
-    };
-
-    VkPhysicalDeviceVulkan12Features features_12 = {
+    VkPhysicalDeviceVulkan12Features features_1_2 = {
         .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES,
         .imagelessFramebuffer = VK_TRUE,
     };
 
     VkDeviceCreateInfo create_info = {
         .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
-        .pNext = &features_12,
+        .pNext = &features_1_2,
         .queueCreateInfoCount = static_cast<uint32_t>(device_queue_create_infos.size()),
         .pQueueCreateInfos = device_queue_create_infos.data(),
         .enabledLayerCount = 0,
@@ -235,19 +239,31 @@ static VkDevice create_device(VkPhysicalDevice physical_device, QueueFamilies qu
     return device;
 }
 
-VkSwapchainKHR create_swapchain(VkPhysicalDevice physical_device, QueueFamilies queue_families, VkDevice device, VkSurfaceKHR surface, Size size)
+VkSwapchainKHR create_swapchain(
+    VkPhysicalDevice physical_device,
+    QueueFamilies queue_families,
+    VkDevice device,
+    VkSurfaceKHR surface,
+    Size size)
 {
     VkSurfaceCapabilitiesKHR capabilities = {};
     vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physical_device, surface, &capabilities);
 
     VkExtent2D swapchain_extent = {
-        .width = std::clamp(size.width, capabilities.minImageExtent.width, capabilities.maxImageExtent.width),
-        .height = std::clamp(size.height, capabilities.minImageExtent.height, capabilities.maxImageExtent.height),
+        .width = std::clamp(
+            size.width,
+            capabilities.minImageExtent.width,
+            capabilities.maxImageExtent.width),
+        .height = std::clamp(
+            size.height,
+            capabilities.minImageExtent.height,
+            capabilities.maxImageExtent.height),
     };
 
     auto families = unique_families(queue_families);
 
-    auto sharing_mode = families.size() == 1 ? VK_SHARING_MODE_EXCLUSIVE : VK_SHARING_MODE_CONCURRENT;
+    auto sharing_mode = families.size() == 1 ? VK_SHARING_MODE_EXCLUSIVE
+                                             : VK_SHARING_MODE_CONCURRENT;
 
     VkSwapchainCreateInfoKHR create_info = {
         .sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
@@ -429,113 +445,187 @@ VkCommandBuffer record_command_buffer(VkDevice device, VkCommandPool pool, F f)
     return cmd;
 }
 
-void Renderer::render()
-{
-    uint32_t image_index = 0;
-    VK_ASSERT(vkAcquireNextImageKHR(m_device, m_swapchain, TIMEOUT, m_next_image_acquired, VK_NULL_HANDLE, &image_index));
+struct RenderPassImage {
+    VkFormat format;
+    Size size;
+    VkAttachmentLoadOp load_op;
+    VkAttachmentStoreOp store_op;
+};
 
-    VkAttachmentDescription attachment = {
-        .format = VK_FORMAT_B8G8R8A8_SRGB,
-        .samples = VK_SAMPLE_COUNT_1_BIT,
-        .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
-        .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
-        .stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
-        .stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
-        .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-        .finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
-    };
+struct RenderPassDesc {
+    VkDevice device;
+    std::span<RenderPassImage> images;
+};
 
-    VkAttachmentReference attachment_ref = {
-        .attachment = 0,
-        .layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-    };
+class RenderPass : DM::NonCopyable {
+public:
+    RenderPass(const RenderPassDesc& desc)
+    {
+        m_device = desc.device;
 
-    VkSubpassDescription sp = {
-        .pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS,
-        .inputAttachmentCount = 0,
-        .pInputAttachments = nullptr,
-        .colorAttachmentCount = 1,
-        .pColorAttachments = &attachment_ref,
-        .pResolveAttachments = nullptr,
-        .pDepthStencilAttachment = nullptr,
-        .preserveAttachmentCount = 0,
-        .pPreserveAttachments = nullptr,
-    };
+        std::vector<VkAttachmentDescription> attachments;
+        std::vector<VkAttachmentReference> attachment_refs;
+        std::vector<VkFramebufferAttachmentImageInfo> framebuffer_attachments;
 
-    VkRenderPassCreateInfo rp_create_info = {
-        .sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO,
-        .attachmentCount = 1,
-        .pAttachments = &attachment,
-        .subpassCount = 1,
-        .pSubpasses = &sp,
-        .dependencyCount = 0,
-        .pDependencies = nullptr,
-    };
+        for (auto image : desc.images) {
+            VkAttachmentDescription attachment = {
+                .format = image.format,
+                .samples = VK_SAMPLE_COUNT_1_BIT,
+                .loadOp = image.load_op,
+                .storeOp = image.store_op,
+                .stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+                .stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
+                .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+                .finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+            };
 
-    VkRenderPass rp = VK_NULL_HANDLE;
-    auto result = vkCreateRenderPass(m_device, &rp_create_info, nullptr, &rp);
-    VK_ASSERT(result);
+            VkAttachmentReference attachment_ref = {
+                .attachment = 0,
+                .layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+            };
 
-    auto format = VK_FORMAT_B8G8R8A8_SRGB;
+            VkFramebufferAttachmentImageInfo fb_attachment_image_info = {
+                .sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_ATTACHMENT_IMAGE_INFO,
+                .usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT
+                    | VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
+                .width = image.size.width,
+                .height = image.size.height,
+                .layerCount = 1,
+                .viewFormatCount = 1,
+                .pViewFormats = &image.format,
+            };
 
-    VkFramebufferAttachmentImageInfo fb_attachment_image_info = {
-        .sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_ATTACHMENT_IMAGE_INFO,
-        .usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
-        .width = 1280,
-        .height = 720,
-        .layerCount = 1,
-        .viewFormatCount = 1,
-        .pViewFormats = &format,
-    };
+            attachments.push_back(attachment);
+            attachment_refs.push_back(attachment_ref);
+            framebuffer_attachments.push_back(fb_attachment_image_info);
+        }
 
-    VkFramebufferAttachmentsCreateInfo fb_attachments_create_info = {
-        .sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_ATTACHMENTS_CREATE_INFO,
-        .attachmentImageInfoCount = 1,
-        .pAttachmentImageInfos = &fb_attachment_image_info,
-    };
+        VkSubpassDescription subpass = {
+            .pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS,
+            .inputAttachmentCount = 0,
+            .pInputAttachments = nullptr,
+            .colorAttachmentCount = static_cast<uint32_t>(attachment_refs.size()),
+            .pColorAttachments = attachment_refs.data(),
+            .pResolveAttachments = nullptr,
+            .pDepthStencilAttachment = nullptr,
+            .preserveAttachmentCount = 0,
+            .pPreserveAttachments = nullptr,
+        };
 
-    VkFramebufferCreateInfo fb_create_info = {
-        .sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,
-        .pNext = &fb_attachments_create_info,
-        .flags = VK_FRAMEBUFFER_CREATE_IMAGELESS_BIT,
-        .renderPass = rp,
-        .attachmentCount = 1,
-        .pAttachments = nullptr,
-        .width = 1280,
-        .height = 720,
-        .layers = 1,
-    };
+        VkRenderPassCreateInfo rp_create_info = {
+            .sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO,
+            .attachmentCount = static_cast<uint32_t>(attachments.size()),
+            .pAttachments = attachments.data(),
+            .subpassCount = 1,
+            .pSubpasses = &subpass,
+            .dependencyCount = 0,
+            .pDependencies = nullptr,
+        };
 
-    VkFramebuffer fb = VK_NULL_HANDLE;
-    result = vkCreateFramebuffer(m_device, &fb_create_info, nullptr, &fb);
-    VK_ASSERT(result);
+        auto result = vkCreateRenderPass(
+            m_device,
+            &rp_create_info,
+            nullptr,
+            &m_render_pass);
+        VK_ASSERT(result);
 
-    auto cmd = record_command_buffer(m_device, m_command_pool, [&](auto cmd) {
+        VkFramebufferAttachmentsCreateInfo fb_attachments_create_info = {
+            .sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_ATTACHMENTS_CREATE_INFO,
+            .attachmentImageInfoCount = static_cast<uint32_t>(framebuffer_attachments.size()),
+            .pAttachmentImageInfos = framebuffer_attachments.data(),
+        };
+
+        VkFramebufferCreateInfo fb_create_info = {
+            .sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,
+            .pNext = &fb_attachments_create_info,
+            .flags = VK_FRAMEBUFFER_CREATE_IMAGELESS_BIT,
+            .renderPass = m_render_pass,
+            .attachmentCount = 1,
+            .pAttachments = nullptr,
+            .width = 1280,
+            .height = 720,
+            .layers = 1,
+        };
+
+        result = vkCreateFramebuffer(
+            m_device,
+            &fb_create_info,
+            nullptr,
+            &m_framebuffer);
+        VK_ASSERT(result);
+    }
+
+    ~RenderPass()
+    {
+        if (m_device) {
+            vkDestroyFramebuffer(m_device, m_framebuffer, nullptr);
+            vkDestroyRenderPass(m_device, m_render_pass, nullptr);
+        }
+    }
+
+    template<typename F>
+    void execute(VkCommandBuffer cmd, std::span<VkImageView> images, F f)
+    {
         VkClearValue clear_value = {
-            .color = { 0.5f, 0.7f, 0.9f, 1.0f },
+            .color = {0.5f, 0.7f, 0.9f, 1.0f},
         };
 
         VkRenderPassAttachmentBeginInfo rp_attachment_begin_info = {
             .sType = VK_STRUCTURE_TYPE_RENDER_PASS_ATTACHMENT_BEGIN_INFO,
-            .attachmentCount = 1,
-            .pAttachments = &m_swapchain_image_views[image_index],
+            .attachmentCount = static_cast<uint32_t>(images.size()),
+            .pAttachments = images.data(),
         };
 
         VkRenderPassBeginInfo rp_begin_info = {
             .sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
             .pNext = &rp_attachment_begin_info,
-            .renderPass = rp,
-            .framebuffer = fb,
+            .renderPass = m_render_pass,
+            .framebuffer = m_framebuffer,
             .renderArea = {
-                .offset = { 0, 0 },
-                .extent = { 1280, 720 },
+                .offset = {0, 0},
+                .extent = {1280, 720},
             },
             .clearValueCount = 1,
             .pClearValues = &clear_value,
         };
 
         vkCmdBeginRenderPass(cmd, &rp_begin_info, VK_SUBPASS_CONTENTS_INLINE);
+
+        f();
+
         vkCmdEndRenderPass(cmd);
+    }
+
+private:
+    VkDevice m_device = VK_NULL_HANDLE;
+    VkFramebuffer m_framebuffer = VK_NULL_HANDLE;
+    VkRenderPass m_render_pass = VK_NULL_HANDLE;
+};
+
+void Renderer::render()
+{
+    uint32_t image_index = 0;
+    VK_ASSERT(vkAcquireNextImageKHR(m_device, m_swapchain, TIMEOUT, m_next_image_acquired, VK_NULL_HANDLE, &image_index));
+
+    std::array images = {
+        RenderPassImage{
+            .format = VK_FORMAT_B8G8R8A8_SRGB,
+            .size = {1280, 720},
+            .load_op = VK_ATTACHMENT_LOAD_OP_CLEAR,
+            .store_op = VK_ATTACHMENT_STORE_OP_STORE,
+        },
+    };
+
+    RenderPass render_pass({
+        .device = m_device,
+        .images = images,
+    });
+
+    auto cmd = record_command_buffer(m_device, m_command_pool, [&](auto cmd) {
+        std::array image_views = {m_swapchain_image_views[image_index]};
+        render_pass.execute(cmd, image_views, [&]() {
+
+        });
     });
 
     VkPipelineStageFlags stage_mask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
@@ -569,7 +659,5 @@ void Renderer::render()
 
     vkFreeCommandBuffers(m_device, m_command_pool, 1, &cmd);
     vkResetCommandPool(m_device, m_command_pool, 0);
-    vkDestroyFramebuffer(m_device, fb, nullptr);
-    vkDestroyRenderPass(m_device, rp, nullptr);
 }
 }
