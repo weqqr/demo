@@ -6,7 +6,10 @@
 
 #include <algorithm>
 #include <array>
+#include <fstream>
+#include <optional>
 #include <span>
+#include <string_view>
 #include <vector>
 
 #define VK_ASSERT(condition) ASSERT((condition) == VK_SUCCESS)
@@ -335,6 +338,282 @@ static VkFence create_fence(VkDevice device, bool signaled = false)
     return fence;
 }
 
+#pragma region render pass
+struct RenderPassImage {
+    VkFormat format;
+    Size size;
+    VkAttachmentLoadOp load_op;
+    VkAttachmentStoreOp store_op;
+    std::optional<VkClearValue> clear_value;
+};
+
+struct RenderPassDesc {
+    VkDevice device;
+    std::span<RenderPassImage> images;
+};
+
+RenderPass::RenderPass(const RenderPassDesc& desc)
+{
+    m_device = desc.device;
+
+    std::vector<VkAttachmentDescription> attachments;
+    std::vector<VkAttachmentReference> attachment_refs;
+    std::vector<VkFramebufferAttachmentImageInfo> framebuffer_attachments;
+    std::vector<VkClearValue> clear_values;
+
+    for (auto image : desc.images) {
+        VkAttachmentDescription attachment = {
+            .format = image.format,
+            .samples = VK_SAMPLE_COUNT_1_BIT,
+            .loadOp = image.load_op,
+            .storeOp = image.store_op,
+            .stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+            .stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
+            .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+            .finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+        };
+
+        VkAttachmentReference attachment_ref = {
+            .attachment = 0,
+            .layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+        };
+
+        VkFramebufferAttachmentImageInfo fb_attachment_image_info = {
+            .sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_ATTACHMENT_IMAGE_INFO,
+            .usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
+            .width = image.size.width,
+            .height = image.size.height,
+            .layerCount = 1,
+            .viewFormatCount = 1,
+            .pViewFormats = &image.format,
+        };
+
+        attachments.push_back(attachment);
+        attachment_refs.push_back(attachment_ref);
+        framebuffer_attachments.push_back(fb_attachment_image_info);
+
+        if (image.clear_value) {
+            clear_values.push_back(*image.clear_value);
+        }
+    }
+
+    VkSubpassDescription subpass = {
+        .pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS,
+        .inputAttachmentCount = 0,
+        .pInputAttachments = nullptr,
+        .colorAttachmentCount = static_cast<uint32_t>(attachment_refs.size()),
+        .pColorAttachments = attachment_refs.data(),
+        .pResolveAttachments = nullptr,
+        .pDepthStencilAttachment = nullptr,
+        .preserveAttachmentCount = 0,
+        .pPreserveAttachments = nullptr,
+    };
+
+    VkRenderPassCreateInfo rp_create_info = {
+        .sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO,
+        .attachmentCount = static_cast<uint32_t>(attachments.size()),
+        .pAttachments = attachments.data(),
+        .subpassCount = 1,
+        .pSubpasses = &subpass,
+        .dependencyCount = 0,
+        .pDependencies = nullptr,
+    };
+
+    auto result = vkCreateRenderPass(m_device, &rp_create_info, nullptr, &m_render_pass);
+    VK_ASSERT(result);
+
+    VkFramebufferAttachmentsCreateInfo fb_attachments_create_info = {
+        .sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_ATTACHMENTS_CREATE_INFO,
+        .attachmentImageInfoCount = static_cast<uint32_t>(framebuffer_attachments.size()),
+        .pAttachmentImageInfos = framebuffer_attachments.data(),
+    };
+
+    VkFramebufferCreateInfo fb_create_info = {
+        .sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,
+        .pNext = &fb_attachments_create_info,
+        .flags = VK_FRAMEBUFFER_CREATE_IMAGELESS_BIT,
+        .renderPass = m_render_pass,
+        .attachmentCount = 1,
+        .pAttachments = nullptr,
+        .width = 1280,
+        .height = 720,
+        .layers = 1,
+    };
+
+    result = vkCreateFramebuffer(m_device, &fb_create_info, nullptr, &m_framebuffer);
+    VK_ASSERT(result);
+}
+#pragma endregion
+
+static VkShaderModule create_shader_module(VkDevice device, std::span<uint8_t> spirv_bytes)
+{
+    VkShaderModuleCreateInfo create_info = {
+        .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
+        .codeSize = spirv_bytes.size(),
+        .pCode = reinterpret_cast<const uint32_t*>(spirv_bytes.data()),
+    };
+
+    VkShaderModule shader_module = VK_NULL_HANDLE;
+    auto result = vkCreateShaderModule(device, &create_info, nullptr, &shader_module);
+    VK_ASSERT(result);
+
+    return shader_module;
+}
+
+static std::vector<uint8_t> load_binary_file(std::string_view path)
+{
+    std::ifstream ifs(path.data(), std::ios::binary);
+    ASSERT(ifs.good());
+
+    std::vector<uint8_t> buffer(std::istreambuf_iterator<char>(ifs), {});
+
+    return buffer;
+}
+
+static VkPipeline create_pipeline(VkDevice device, VkRenderPass render_pass, Size size)
+{
+    VkPipelineLayoutCreateInfo layout_create_info = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
+        .setLayoutCount = 0,
+        .pSetLayouts = nullptr,
+        .pushConstantRangeCount = 0,
+        .pPushConstantRanges = nullptr,
+    };
+    VkPipelineLayout layout = VK_NULL_HANDLE;
+    auto result = vkCreatePipelineLayout(device, &layout_create_info, nullptr, &layout);
+    VK_ASSERT(result);
+
+    auto vertex_spirv = load_binary_file("../Demo/Shaders/demo.vert.spv");
+    auto fragment_spirv = load_binary_file("../Demo/Shaders/demo.frag.spv");
+
+    debug("vertex shader size={}", vertex_spirv.size());
+    debug("fragment shader size={}", fragment_spirv.size());
+
+    auto vertex_shader = create_shader_module(device, vertex_spirv);
+    auto fragment_shader = create_shader_module(device, fragment_spirv);
+
+    VkPipelineShaderStageCreateInfo vertex_stage = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+        .stage = VK_SHADER_STAGE_VERTEX_BIT,
+        .module = vertex_shader,
+        .pName = "main",
+        .pSpecializationInfo = nullptr,
+    };
+
+    VkPipelineShaderStageCreateInfo fragment_stage = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+        .stage = VK_SHADER_STAGE_FRAGMENT_BIT,
+        .module = fragment_shader,
+        .pName = "main",
+        .pSpecializationInfo = nullptr,
+    };
+
+    std::array stages = {vertex_stage, fragment_stage};
+
+    VkPipelineVertexInputStateCreateInfo vertex_input_state = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
+        .vertexBindingDescriptionCount = 0,
+        .pVertexBindingDescriptions = nullptr,
+        .vertexAttributeDescriptionCount = 0,
+        .pVertexAttributeDescriptions = nullptr,
+    };
+
+    VkPipelineInputAssemblyStateCreateInfo input_assembly_state = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
+        .topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
+        .primitiveRestartEnable = VK_FALSE,
+    };
+
+    VkViewport viewport = {
+        .x = 0.0f,
+        .y = 0.0f,
+        .width = static_cast<float>(size.width),
+        .height = static_cast<float>(size.height),
+        .minDepth = 0.0f,
+        .maxDepth = 1.0f,
+    };
+
+    VkRect2D scissor = {
+        .offset = {0, 0},
+        .extent = {size.width, size.height},
+    };
+
+    VkPipelineViewportStateCreateInfo viewport_state = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO,
+        .viewportCount = 1,
+        .pViewports = &viewport,
+        .scissorCount = 1,
+        .pScissors = &scissor,
+    };
+
+    VkPipelineRasterizationStateCreateInfo rasterization_state = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
+        .depthClampEnable = VK_FALSE,
+        .rasterizerDiscardEnable = VK_FALSE,
+        .polygonMode = VK_POLYGON_MODE_FILL,
+        .cullMode = VK_CULL_MODE_NONE,
+        .frontFace = VK_FRONT_FACE_CLOCKWISE,
+        .depthBiasEnable = VK_FALSE,
+        .depthBiasConstantFactor = 0.0f,
+        .depthBiasClamp = 0.0f,
+        .depthBiasSlopeFactor = 0.0f,
+        .lineWidth = 1.0f,
+    };
+
+    VkPipelineMultisampleStateCreateInfo multisample_state = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
+        .rasterizationSamples = VK_SAMPLE_COUNT_1_BIT,
+        .sampleShadingEnable = VK_FALSE,
+        .minSampleShading = 1.0f,
+        .pSampleMask = nullptr,
+        .alphaToCoverageEnable = VK_FALSE,
+        .alphaToOneEnable = VK_FALSE,
+    };
+
+    VkPipelineColorBlendAttachmentState color_blend_attachment = {
+        .blendEnable = VK_FALSE,
+        .colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT,
+    };
+
+    VkPipelineColorBlendStateCreateInfo color_blend_state = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,
+        .logicOpEnable = VK_FALSE,
+        .logicOp = VK_LOGIC_OP_COPY,
+        .attachmentCount = 1,
+        .pAttachments = &color_blend_attachment,
+        .blendConstants = {0.0f, 0.0f, 0.0f, 0.0f},
+    };
+
+    VkGraphicsPipelineCreateInfo pipeline_create_info = {
+        .sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
+        .stageCount = static_cast<uint32_t>(stages.size()),
+        .pStages = stages.data(),
+        .pVertexInputState = &vertex_input_state,
+        .pInputAssemblyState = &input_assembly_state,
+        .pTessellationState = nullptr,
+        .pViewportState = &viewport_state,
+        .pRasterizationState = &rasterization_state,
+        .pMultisampleState = &multisample_state,
+        .pDepthStencilState = nullptr,
+        .pColorBlendState = &color_blend_state,
+        .pDynamicState = nullptr,
+        .layout = layout,
+        .renderPass = render_pass,
+        .subpass = 0,
+        .basePipelineHandle = VK_NULL_HANDLE,
+        .basePipelineIndex = 0,
+    };
+
+    VkPipeline pipeline = VK_NULL_HANDLE;
+    result = vkCreateGraphicsPipelines(device, nullptr, 1, &pipeline_create_info, nullptr, &pipeline);
+
+    vkDestroyPipelineLayout(device, layout, nullptr);
+    vkDestroyShaderModule(device, vertex_shader, nullptr);
+    vkDestroyShaderModule(device, fragment_shader, nullptr);
+
+    return pipeline;
+}
+
 Renderer::Renderer(const Window& window)
 {
     VK_ASSERT(volkInitialize());
@@ -392,11 +671,33 @@ Renderer::Renderer(const Window& window)
     m_rendering_finished = create_semaphore(m_device);
     m_next_image_acquired = create_semaphore(m_device);
     m_gpu_work_finished = create_fence(m_device, false);
+    std::array images = {
+        RenderPassImage{
+            .format = VK_FORMAT_B8G8R8A8_SRGB,
+            .size = {1280, 720},
+            .load_op = VK_ATTACHMENT_LOAD_OP_CLEAR,
+            .store_op = VK_ATTACHMENT_STORE_OP_STORE,
+        },
+    };
+
+    m_render_pass = RenderPass({
+        .device = m_device,
+        .images = images,
+    });
+
+    m_pipeline = create_pipeline(m_device, m_render_pass.raw(), Size(1280, 720));
 }
+
+template<typename T>
+void drop(T t) { }
 
 Renderer::~Renderer()
 {
     if (m_device) {
+        vkDestroyPipeline(m_device, m_pipeline, nullptr);
+
+        drop(move(m_render_pass));
+
         vkDestroyFence(m_device, m_gpu_work_finished, nullptr);
         vkDestroySemaphore(m_device, m_next_image_acquired, nullptr);
         vkDestroySemaphore(m_device, m_rendering_finished, nullptr);
@@ -445,186 +746,20 @@ VkCommandBuffer record_command_buffer(VkDevice device, VkCommandPool pool, F f)
     return cmd;
 }
 
-struct RenderPassImage {
-    VkFormat format;
-    Size size;
-    VkAttachmentLoadOp load_op;
-    VkAttachmentStoreOp store_op;
-};
-
-struct RenderPassDesc {
-    VkDevice device;
-    std::span<RenderPassImage> images;
-};
-
-class RenderPass : DM::NonCopyable {
-public:
-    RenderPass(const RenderPassDesc& desc)
-    {
-        m_device = desc.device;
-
-        std::vector<VkAttachmentDescription> attachments;
-        std::vector<VkAttachmentReference> attachment_refs;
-        std::vector<VkFramebufferAttachmentImageInfo> framebuffer_attachments;
-
-        for (auto image : desc.images) {
-            VkAttachmentDescription attachment = {
-                .format = image.format,
-                .samples = VK_SAMPLE_COUNT_1_BIT,
-                .loadOp = image.load_op,
-                .storeOp = image.store_op,
-                .stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
-                .stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
-                .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-                .finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
-            };
-
-            VkAttachmentReference attachment_ref = {
-                .attachment = 0,
-                .layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-            };
-
-            VkFramebufferAttachmentImageInfo fb_attachment_image_info = {
-                .sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_ATTACHMENT_IMAGE_INFO,
-                .usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT
-                    | VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
-                .width = image.size.width,
-                .height = image.size.height,
-                .layerCount = 1,
-                .viewFormatCount = 1,
-                .pViewFormats = &image.format,
-            };
-
-            attachments.push_back(attachment);
-            attachment_refs.push_back(attachment_ref);
-            framebuffer_attachments.push_back(fb_attachment_image_info);
-        }
-
-        VkSubpassDescription subpass = {
-            .pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS,
-            .inputAttachmentCount = 0,
-            .pInputAttachments = nullptr,
-            .colorAttachmentCount = static_cast<uint32_t>(attachment_refs.size()),
-            .pColorAttachments = attachment_refs.data(),
-            .pResolveAttachments = nullptr,
-            .pDepthStencilAttachment = nullptr,
-            .preserveAttachmentCount = 0,
-            .pPreserveAttachments = nullptr,
-        };
-
-        VkRenderPassCreateInfo rp_create_info = {
-            .sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO,
-            .attachmentCount = static_cast<uint32_t>(attachments.size()),
-            .pAttachments = attachments.data(),
-            .subpassCount = 1,
-            .pSubpasses = &subpass,
-            .dependencyCount = 0,
-            .pDependencies = nullptr,
-        };
-
-        auto result = vkCreateRenderPass(
-            m_device,
-            &rp_create_info,
-            nullptr,
-            &m_render_pass);
-        VK_ASSERT(result);
-
-        VkFramebufferAttachmentsCreateInfo fb_attachments_create_info = {
-            .sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_ATTACHMENTS_CREATE_INFO,
-            .attachmentImageInfoCount = static_cast<uint32_t>(framebuffer_attachments.size()),
-            .pAttachmentImageInfos = framebuffer_attachments.data(),
-        };
-
-        VkFramebufferCreateInfo fb_create_info = {
-            .sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,
-            .pNext = &fb_attachments_create_info,
-            .flags = VK_FRAMEBUFFER_CREATE_IMAGELESS_BIT,
-            .renderPass = m_render_pass,
-            .attachmentCount = 1,
-            .pAttachments = nullptr,
-            .width = 1280,
-            .height = 720,
-            .layers = 1,
-        };
-
-        result = vkCreateFramebuffer(
-            m_device,
-            &fb_create_info,
-            nullptr,
-            &m_framebuffer);
-        VK_ASSERT(result);
-    }
-
-    ~RenderPass()
-    {
-        if (m_device) {
-            vkDestroyFramebuffer(m_device, m_framebuffer, nullptr);
-            vkDestroyRenderPass(m_device, m_render_pass, nullptr);
-        }
-    }
-
-    template<typename F>
-    void execute(VkCommandBuffer cmd, std::span<VkImageView> images, F f)
-    {
-        VkClearValue clear_value = {
-            .color = {0.5f, 0.7f, 0.9f, 1.0f},
-        };
-
-        VkRenderPassAttachmentBeginInfo rp_attachment_begin_info = {
-            .sType = VK_STRUCTURE_TYPE_RENDER_PASS_ATTACHMENT_BEGIN_INFO,
-            .attachmentCount = static_cast<uint32_t>(images.size()),
-            .pAttachments = images.data(),
-        };
-
-        VkRenderPassBeginInfo rp_begin_info = {
-            .sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
-            .pNext = &rp_attachment_begin_info,
-            .renderPass = m_render_pass,
-            .framebuffer = m_framebuffer,
-            .renderArea = {
-                .offset = {0, 0},
-                .extent = {1280, 720},
-            },
-            .clearValueCount = 1,
-            .pClearValues = &clear_value,
-        };
-
-        vkCmdBeginRenderPass(cmd, &rp_begin_info, VK_SUBPASS_CONTENTS_INLINE);
-
-        f();
-
-        vkCmdEndRenderPass(cmd);
-    }
-
-private:
-    VkDevice m_device = VK_NULL_HANDLE;
-    VkFramebuffer m_framebuffer = VK_NULL_HANDLE;
-    VkRenderPass m_render_pass = VK_NULL_HANDLE;
-};
-
 void Renderer::render()
 {
     uint32_t image_index = 0;
     VK_ASSERT(vkAcquireNextImageKHR(m_device, m_swapchain, TIMEOUT, m_next_image_acquired, VK_NULL_HANDLE, &image_index));
 
-    std::array images = {
-        RenderPassImage{
-            .format = VK_FORMAT_B8G8R8A8_SRGB,
-            .size = {1280, 720},
-            .load_op = VK_ATTACHMENT_LOAD_OP_CLEAR,
-            .store_op = VK_ATTACHMENT_STORE_OP_STORE,
-        },
+    std::array clear_values = {
+        VkClearValue{.color = {0.5f, 0.7f, 0.9f, 1.0f}},
     };
-
-    RenderPass render_pass({
-        .device = m_device,
-        .images = images,
-    });
+    std::array image_views = {m_swapchain_image_views[image_index]};
 
     auto cmd = record_command_buffer(m_device, m_command_pool, [&](auto cmd) {
-        std::array image_views = {m_swapchain_image_views[image_index]};
-        render_pass.execute(cmd, image_views, [&]() {
-
+        m_render_pass.execute(cmd, clear_values, image_views, [&]() {
+            vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline);
+            vkCmdDraw(cmd, 3, 1, 0, 0);
         });
     });
 
