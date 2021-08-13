@@ -23,7 +23,7 @@ void run()
     Renderer renderer(window);
 
     while (!window.close_requested() && !window.key_pressed(GLFW_KEY_ESCAPE)) {
-        glfwPollEvents();
+        glfwWaitEvents();
         renderer.render();
     }
 }

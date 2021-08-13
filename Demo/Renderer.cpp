@@ -445,6 +445,35 @@ RenderPass::RenderPass(const RenderPassDesc& desc)
     result = vkCreateFramebuffer(m_device, &fb_create_info, nullptr, &m_framebuffer);
     VK_ASSERT(result);
 }
+void RenderPass::begin_render_pass(VkCommandBuffer cmd, std::span<VkClearValue> clear_values, std::span<VkImageView> images)
+{
+    VkRenderPassAttachmentBeginInfo rp_attachment_begin_info = {
+        .sType = VK_STRUCTURE_TYPE_RENDER_PASS_ATTACHMENT_BEGIN_INFO,
+        .attachmentCount = static_cast<uint32_t>(images.size()),
+        .pAttachments = images.data(),
+    };
+
+    VkRenderPassBeginInfo rp_begin_info = {
+        .sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
+        .pNext = &rp_attachment_begin_info,
+        .renderPass = m_render_pass,
+        .framebuffer = m_framebuffer,
+        .renderArea = {
+            .offset = {0, 0},
+            .extent = {1280, 720},
+        },
+        .clearValueCount = static_cast<uint32_t>(clear_values.size()),
+        .pClearValues = clear_values.data(),
+    };
+
+    vkCmdBeginRenderPass(cmd, &rp_begin_info, VK_SUBPASS_CONTENTS_INLINE);
+}
+
+void RenderPass::end_render_pass(VkCommandBuffer cmd)
+{
+    vkCmdEndRenderPass(cmd);
+}
+
 #pragma endregion
 
 #pragma region pipeline

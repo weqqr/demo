@@ -36,30 +36,9 @@ public:
     template<typename F>
     void execute(VkCommandBuffer cmd, std::span<VkClearValue> clear_values, std::span<VkImageView> images, F f)
     {
-        VkRenderPassAttachmentBeginInfo rp_attachment_begin_info = {
-            .sType = VK_STRUCTURE_TYPE_RENDER_PASS_ATTACHMENT_BEGIN_INFO,
-            .attachmentCount = static_cast<uint32_t>(images.size()),
-            .pAttachments = images.data(),
-        };
-
-        VkRenderPassBeginInfo rp_begin_info = {
-            .sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
-            .pNext = &rp_attachment_begin_info,
-            .renderPass = m_render_pass,
-            .framebuffer = m_framebuffer,
-            .renderArea = {
-                .offset = {0, 0},
-                .extent = {1280, 720},
-            },
-            .clearValueCount = static_cast<uint32_t>(clear_values.size()),
-            .pClearValues = clear_values.data(),
-        };
-
-        vkCmdBeginRenderPass(cmd, &rp_begin_info, VK_SUBPASS_CONTENTS_INLINE);
-
+        begin_render_pass(cmd, clear_values, images);
         f();
-
-        vkCmdEndRenderPass(cmd);
+        end_render_pass(cmd);
     }
 
     VkRenderPass raw() const { return m_render_pass; }
@@ -76,6 +55,9 @@ public:
     }
 
 private:
+    void begin_render_pass(VkCommandBuffer cmd, std::span<VkClearValue> clear_values, std::span<VkImageView> images);
+    void end_render_pass(VkCommandBuffer cmd);
+
     VkDevice m_device = VK_NULL_HANDLE;
     VkFramebuffer m_framebuffer = VK_NULL_HANDLE;
     VkRenderPass m_render_pass = VK_NULL_HANDLE;
