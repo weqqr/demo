@@ -1,10 +1,12 @@
 #pragma once
 
-#include <DM/Types.h>
 #include <DM/Base.h>
-#include <volk.h>
-#include <vector>
+#include <DM/Types.h>
 #include <span>
+#include <vector>
+#include <volk.h>
+#define VMA_STATIC_VULKAN_FUNCTIONS 0
+#include <vk_mem_alloc.h>
 
 namespace Demo {
 class Window;
@@ -43,11 +45,13 @@ public:
 
     VkRenderPass raw() const { return m_render_pass; }
 
-    RenderPass(RenderPass&& other) noexcept {
+    RenderPass(RenderPass&& other) noexcept
+    {
         *this = move(other);
     }
 
-    RenderPass& operator=(RenderPass&& other) noexcept {
+    RenderPass& operator=(RenderPass&& other) noexcept
+    {
         DM::swap(m_device, other.m_device);
         DM::swap(m_framebuffer, other.m_framebuffer);
         DM::swap(m_render_pass, other.m_render_pass);
@@ -85,6 +89,8 @@ private:
     std::vector<VkImageView> m_swapchain_image_views;
 
     VkCommandPool m_command_pool = VK_NULL_HANDLE;
+
+    VmaAllocator m_allocator = VK_NULL_HANDLE;
 
     VkSemaphore m_rendering_finished = VK_NULL_HANDLE;
     VkSemaphore m_next_image_acquired = VK_NULL_HANDLE;

@@ -4,8 +4,6 @@
 #include <Demo/Window.h>
 #include <windows.h> // GetModuleHandle
 
-#include <vk_mem_alloc.h>
-
 #include <algorithm>
 #include <array>
 #include <fstream>
@@ -311,6 +309,48 @@ static VkCommandPool create_command_pool(VkDevice device, uint32_t family_index)
     return pool;
 }
 
+static VmaAllocator create_allocator(VkInstance instance, VkPhysicalDevice physical_device, VkDevice device)
+{
+    VmaVulkanFunctions vulkan_functions = {
+        .vkGetPhysicalDeviceProperties = vkGetPhysicalDeviceProperties,
+        .vkGetPhysicalDeviceMemoryProperties = vkGetPhysicalDeviceMemoryProperties,
+        .vkAllocateMemory = vkAllocateMemory,
+        .vkFreeMemory = vkFreeMemory,
+        .vkMapMemory = vkMapMemory,
+        .vkUnmapMemory = vkUnmapMemory,
+        .vkFlushMappedMemoryRanges = vkFlushMappedMemoryRanges,
+        .vkInvalidateMappedMemoryRanges = vkInvalidateMappedMemoryRanges,
+        .vkBindBufferMemory = vkBindBufferMemory,
+        .vkBindImageMemory = vkBindImageMemory,
+        .vkGetBufferMemoryRequirements = vkGetBufferMemoryRequirements,
+        .vkGetImageMemoryRequirements = vkGetImageMemoryRequirements,
+        .vkCreateBuffer = vkCreateBuffer,
+        .vkDestroyBuffer = vkDestroyBuffer,
+        .vkCreateImage = vkCreateImage,
+        .vkDestroyImage = vkDestroyImage,
+        .vkCmdCopyBuffer = vkCmdCopyBuffer,
+        .vkGetBufferMemoryRequirements2KHR = nullptr,
+        .vkGetImageMemoryRequirements2KHR = nullptr,
+        .vkBindBufferMemory2KHR = nullptr,
+        .vkBindImageMemory2KHR = nullptr,
+        .vkGetPhysicalDeviceMemoryProperties2KHR = nullptr,
+    };
+
+    VmaAllocatorCreateInfo create_info = {
+        .physicalDevice = physical_device,
+        .device = device,
+        .pVulkanFunctions = &vulkan_functions,
+        .instance = instance,
+        .vulkanApiVersion = VK_API_VERSION_1_0,
+    };
+
+    VmaAllocator allocator = VK_NULL_HANDLE;
+    auto result = vmaCreateAllocator(&create_info, &allocator);
+    VK_ASSERT(result);
+
+    return allocator;
+}
+
 static VkSemaphore create_semaphore(VkDevice device)
 {
     VkSemaphoreCreateInfo create_info = {
@@ -445,6 +485,7 @@ RenderPass::RenderPass(const RenderPassDesc& desc)
     result = vkCreateFramebuffer(m_device, &fb_create_info, nullptr, &m_framebuffer);
     VK_ASSERT(result);
 }
+
 void RenderPass::begin_render_pass(VkCommandBuffer cmd, std::span<VkClearValue> clear_values, std::span<VkImageView> images)
 {
     VkRenderPassAttachmentBeginInfo rp_attachment_begin_info = {
@@ -660,6 +701,8 @@ Renderer::Renderer(const Window& window)
     m_physical_device = physical_device;
     m_queue_families = queue_families;
     m_device = create_device(m_physical_device, m_queue_families);
+    volkLoadDevice(m_device);
+
     vkGetDeviceQueue(m_device, m_queue_families.graphics, 0, &m_graphics);
     vkGetDeviceQueue(m_device, m_queue_families.compute, 0, &m_compute);
     vkGetDeviceQueue(m_device, m_queue_families.present, 0, &m_present);
@@ -702,6 +745,8 @@ Renderer::Renderer(const Window& window)
 
     m_command_pool = create_command_pool(m_device, m_queue_families.graphics);
 
+    m_allocator = create_allocator(m_instance, m_physical_device, m_device);
+
     m_rendering_finished = create_semaphore(m_device);
     m_next_image_acquired = create_semaphore(m_device);
     m_gpu_work_finished = create_fence(m_device, false);
@@ -736,6 +781,7 @@ Renderer::~Renderer()
         vkDestroySemaphore(m_device, m_next_image_acquired, nullptr);
         vkDestroySemaphore(m_device, m_rendering_finished, nullptr);
 
+        vmaDestroyAllocator(m_allocator);
         vkDestroyCommandPool(m_device, m_command_pool, nullptr);
 
         for (auto view : m_swapchain_image_views) {
