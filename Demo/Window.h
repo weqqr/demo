@@ -1,6 +1,7 @@
 #pragma once
 
 #include <DM/Types.h>
+#include <functional>
 
 struct GLFWwindow;
 
@@ -22,6 +23,8 @@ struct Size {
 };
 
 class Window : DM::NonCopyable {
+    friend void resize_callback(GLFWwindow* window, int width, int height);
+
 public:
     Window(const char* title, Size size);
     ~Window();
@@ -31,8 +34,14 @@ public:
     bool key_pressed(int key) const;
     Size size() const;
 
+    void set_resize_handler(std::function<void(Size)> handler)
+    {
+        m_resize_handler = handler;
+    }
+
 private:
     GLFWwindow* m_window = nullptr;
+    std::function<void(Size)> m_resize_handler = [](Size) {};
 };
 
 }

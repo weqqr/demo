@@ -6,12 +6,24 @@
 #include <GLFW/glfw3native.h>
 
 namespace Demo {
+static void resize_callback(GLFWwindow* window, int width, int height)
+{
+    ASSERT(width > 0 && height > 0);
+
+    auto* w = static_cast<Window*>(glfwGetWindowUserPointer(window));
+
+    w->m_resize_handler(Size(static_cast<uint32_t>(width), static_cast<uint32_t>(height)));
+}
+
 Window::Window(const char* title, Size size)
 {
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
     m_window = glfwCreateWindow(static_cast<int>(size.width), static_cast<int>(size.height), title, nullptr, nullptr);
 
     ASSERT(m_window != nullptr);
+
+    glfwSetWindowUserPointer(m_window, this);
+    glfwSetWindowSizeCallback(m_window, resize_callback);
 }
 
 Window::~Window()

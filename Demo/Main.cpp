@@ -1,4 +1,5 @@
 #include <DM/Base.h>
+#include <DM/Log.h>
 #include <DM/Types.h>
 #include <Demo/Renderer.h>
 #include <Demo/Window.h>
@@ -21,6 +22,10 @@ void run()
 {
     Window window("Demo", {1280, 720});
     Renderer renderer(window);
+    window.set_resize_handler([&](Size size) {
+        renderer.resize(size);
+        renderer.render();
+    });
 
     while (!window.close_requested() && !window.key_pressed(GLFW_KEY_ESCAPE)) {
         glfwWaitEvents();

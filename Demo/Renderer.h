@@ -2,6 +2,7 @@
 
 #include <DM/Base.h>
 #include <DM/Types.h>
+#include <Demo/Window.h>
 #include <span>
 #include <vector>
 #include <volk.h>
@@ -9,8 +10,6 @@
 #include <vk_mem_alloc.h>
 
 namespace Demo {
-class Window;
-
 struct QueueFamilies {
     uint32_t graphics = VK_QUEUE_FAMILY_IGNORED;
     uint32_t present = VK_QUEUE_FAMILY_IGNORED;
@@ -55,6 +54,7 @@ public:
         DM::swap(m_device, other.m_device);
         DM::swap(m_framebuffer, other.m_framebuffer);
         DM::swap(m_render_pass, other.m_render_pass);
+        DM::swap(m_size, other.m_size);
         return *this;
     }
 
@@ -65,6 +65,7 @@ private:
     VkDevice m_device = VK_NULL_HANDLE;
     VkFramebuffer m_framebuffer = VK_NULL_HANDLE;
     VkRenderPass m_render_pass = VK_NULL_HANDLE;
+    Size m_size = {0, 0};
 };
 
 class Renderer : DM::NonCopyable {
@@ -72,6 +73,7 @@ public:
     explicit Renderer(const Window& window);
     ~Renderer();
     void render();
+    void resize(Size size);
 
 private:
     VkInstance m_instance = VK_NULL_HANDLE;
@@ -96,8 +98,8 @@ private:
     VkSemaphore m_next_image_acquired = VK_NULL_HANDLE;
     VkFence m_gpu_work_finished = VK_NULL_HANDLE;
 
-    RenderPass m_render_pass;
-
     VkPipeline m_pipeline = VK_NULL_HANDLE;
+
+    Size m_size = {0, 0};
 };
 }
