@@ -59,4 +59,9 @@ Size Window::size() const
 
     return {static_cast<uint32_t>(width), static_cast<uint32_t>(height)};
 }
+
+void Window::set_size_limits(Size minimum, Size maximum)
+{
+    glfwSetWindowSizeLimits(m_window, minimum.width, minimum.height, maximum.width, maximum.height);
+}
 }

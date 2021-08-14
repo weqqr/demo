@@ -21,6 +21,8 @@ void terminate()
 void run()
 {
     Window window("Demo", {1280, 720});
+    window.set_size_limits({320, 180}, SIZE_UNBOUNDED);
+
     Renderer renderer(window);
     window.set_resize_handler([&](Size size) {
         renderer.resize(size);

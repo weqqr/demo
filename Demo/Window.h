@@ -10,7 +10,7 @@ struct Size {
     uint32_t width;
     uint32_t height;
 
-    Size(uint32_t width, uint32_t height)
+    constexpr Size(uint32_t width, uint32_t height)
         : width(width)
         , height(height)
     {
@@ -21,6 +21,8 @@ struct Size {
         return width * height;
     }
 };
+
+static constexpr Size SIZE_UNBOUNDED = Size(-1, -1);
 
 class Window : DM::NonCopyable {
     friend void resize_callback(GLFWwindow* window, int width, int height);
@@ -38,6 +40,8 @@ public:
     {
         m_resize_handler = handler;
     }
+
+    void set_size_limits(Size minimum, Size maximum);
 
 private:
     GLFWwindow* m_window = nullptr;

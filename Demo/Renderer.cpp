@@ -381,6 +381,68 @@ static VkFence create_fence(VkDevice device, bool signaled = false)
     return fence;
 }
 
+#pragma region swapchain
+Swapchain::Swapchain(VkSurfaceKHR surface, VkPhysicalDevice physical_device, QueueFamilies queue_families, VkDevice device, Size size)
+{
+    m_device = device;
+    m_swapchain = create_swapchain(physical_device, queue_families, device, surface, size);
+
+    uint32_t count = 0;
+    vkGetSwapchainImagesKHR(m_device, m_swapchain, &count, nullptr);
+    m_swapchain_images.resize(count);
+    vkGetSwapchainImagesKHR(m_device, m_swapchain, &count, m_swapchain_images.data());
+
+    for (auto image : m_swapchain_images) {
+        VkImageViewCreateInfo create_info = {
+            .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+            .image = image,
+            .viewType = VK_IMAGE_VIEW_TYPE_2D,
+            .format = VK_FORMAT_B8G8R8A8_SRGB,
+            .components = {
+                .r = VK_COMPONENT_SWIZZLE_IDENTITY,
+                .g = VK_COMPONENT_SWIZZLE_IDENTITY,
+                .b = VK_COMPONENT_SWIZZLE_IDENTITY,
+                .a = VK_COMPONENT_SWIZZLE_IDENTITY,
+            },
+            .subresourceRange = {
+                .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                .baseMipLevel = 0,
+                .levelCount = 1,
+                .baseArrayLayer = 0,
+                .layerCount = 1,
+            },
+        };
+
+        VkImageView view = VK_NULL_HANDLE;
+        auto result = vkCreateImageView(m_device, &create_info, nullptr, &view);
+
+        VK_ASSERT(result);
+
+        m_swapchain_image_views.push_back(view);
+    }
+}
+
+Swapchain::~Swapchain()
+{
+    if (m_device) {
+        for (auto view : m_swapchain_image_views) {
+            vkDestroyImageView(m_device, view, nullptr);
+        }
+
+        vkDestroySwapchainKHR(m_device, m_swapchain, nullptr);
+    }
+}
+
+std::pair<VkImageView, uint32_t> Swapchain::acquire_next_image(VkSemaphore semaphore)
+{
+    uint32_t image_index = 0;
+    VK_ASSERT(vkAcquireNextImageKHR(m_device, m_swapchain, TIMEOUT, semaphore, VK_NULL_HANDLE, &image_index));
+
+    return {m_swapchain_image_views[image_index], image_index};
+}
+
+#pragma endregion
+
 #pragma region render pass
 struct RenderPassImage {
     VkFormat format;
@@ -724,41 +786,7 @@ Renderer::Renderer(const Window& window)
     vkGetDeviceQueue(m_device, m_queue_families.compute, 0, &m_compute);
     vkGetDeviceQueue(m_device, m_queue_families.present, 0, &m_present);
 
-    m_swapchain = create_swapchain(m_physical_device, m_queue_families, m_device, m_surface, window.size());
-
-    uint32_t count = 0;
-    vkGetSwapchainImagesKHR(m_device, m_swapchain, &count, nullptr);
-    m_swapchain_images.resize(count);
-    vkGetSwapchainImagesKHR(m_device, m_swapchain, &count, m_swapchain_images.data());
-
-    for (auto image : m_swapchain_images) {
-        VkImageViewCreateInfo create_info = {
-            .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
-            .image = image,
-            .viewType = VK_IMAGE_VIEW_TYPE_2D,
-            .format = VK_FORMAT_B8G8R8A8_SRGB,
-            .components = {
-                .r = VK_COMPONENT_SWIZZLE_IDENTITY,
-                .g = VK_COMPONENT_SWIZZLE_IDENTITY,
-                .b = VK_COMPONENT_SWIZZLE_IDENTITY,
-                .a = VK_COMPONENT_SWIZZLE_IDENTITY,
-            },
-            .subresourceRange = {
-                .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-                .baseMipLevel = 0,
-                .levelCount = 1,
-                .baseArrayLayer = 0,
-                .layerCount = 1,
-            },
-        };
-
-        VkImageView view = VK_NULL_HANDLE;
-        auto result = vkCreateImageView(m_device, &create_info, nullptr, &view);
-
-        VK_ASSERT(result);
-
-        m_swapchain_image_views.push_back(view);
-    }
+    m_swapchain = Swapchain(m_surface, m_physical_device, m_queue_families, m_device, m_size);
 
     m_command_pool = create_command_pool(m_device, m_queue_families.graphics);
 
@@ -767,6 +795,7 @@ Renderer::Renderer(const Window& window)
     m_rendering_finished = create_semaphore(m_device);
     m_next_image_acquired = create_semaphore(m_device);
     m_gpu_work_finished = create_fence(m_device, false);
+
     std::array images = {
         RenderPassImage{
             .format = VK_FORMAT_B8G8R8A8_SRGB,
@@ -799,11 +828,7 @@ Renderer::~Renderer()
         vmaDestroyAllocator(m_allocator);
         vkDestroyCommandPool(m_device, m_command_pool, nullptr);
 
-        for (auto view : m_swapchain_image_views) {
-            vkDestroyImageView(m_device, view, nullptr);
-        }
-
-        vkDestroySwapchainKHR(m_device, m_swapchain, nullptr);
+        drop(move(m_swapchain));
         vkDestroyDevice(m_device, nullptr);
     }
 
@@ -844,64 +869,29 @@ VkCommandBuffer record_command_buffer(VkDevice device, VkCommandPool pool, F f)
 void Renderer::resize(Size size)
 {
     vkDeviceWaitIdle(m_device);
-
     m_size = size;
 
-    for (auto view : m_swapchain_image_views) {
-        vkDestroyImageView(m_device, view, nullptr);
-    }
-
-    m_swapchain_images.clear();
-    m_swapchain_image_views.clear();
-
-    vkDestroySwapchainKHR(m_device, m_swapchain, nullptr);
-
-    m_swapchain = create_swapchain(m_physical_device, m_queue_families, m_device, m_surface, size);
-
-    uint32_t count = 0;
-    vkGetSwapchainImagesKHR(m_device, m_swapchain, &count, nullptr);
-    m_swapchain_images.resize(count);
-    vkGetSwapchainImagesKHR(m_device, m_swapchain, &count, m_swapchain_images.data());
-
-    for (auto image : m_swapchain_images) {
-        VkImageViewCreateInfo create_info = {
-            .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
-            .image = image,
-            .viewType = VK_IMAGE_VIEW_TYPE_2D,
-            .format = VK_FORMAT_B8G8R8A8_SRGB,
-            .components = {
-                .r = VK_COMPONENT_SWIZZLE_IDENTITY,
-                .g = VK_COMPONENT_SWIZZLE_IDENTITY,
-                .b = VK_COMPONENT_SWIZZLE_IDENTITY,
-                .a = VK_COMPONENT_SWIZZLE_IDENTITY,
-            },
-            .subresourceRange = {
-                .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-                .baseMipLevel = 0,
-                .levelCount = 1,
-                .baseArrayLayer = 0,
-                .layerCount = 1,
-            },
-        };
-
-        VkImageView view = VK_NULL_HANDLE;
-        auto result = vkCreateImageView(m_device, &create_info, nullptr, &view);
-
-        VK_ASSERT(result);
-
-        m_swapchain_image_views.push_back(view);
-    }
+    drop(move(m_swapchain));
+    m_swapchain = Swapchain(m_surface, m_physical_device, m_queue_families, m_device, m_size);
 }
 
 void Renderer::render()
 {
-    uint32_t image_index = 0;
-    VK_ASSERT(vkAcquireNextImageKHR(m_device, m_swapchain, TIMEOUT, m_next_image_acquired, VK_NULL_HANDLE, &image_index));
-
-    std::array clear_values = {
-        VkClearValue{.color = {0.5f, 0.7f, 0.9f, 1.0f}},
+    std::array images = {
+        RenderPassImage{
+            .format = VK_FORMAT_B8G8R8A8_SRGB,
+            .load_op = VK_ATTACHMENT_LOAD_OP_CLEAR,
+            .store_op = VK_ATTACHMENT_STORE_OP_STORE,
+        },
     };
-    std::array image_views = {m_swapchain_image_views[image_index]};
+
+    RenderPass render_pass({
+        .device = m_device,
+        .size = m_size,
+        .images = images,
+    });
+
+    auto [view, index] = m_swapchain.acquire_next_image(m_next_image_acquired);
 
     VkViewport viewport = {
         .x = 0.0f,
@@ -917,19 +907,10 @@ void Renderer::render()
         .extent = {m_size.width, m_size.height},
     };
 
-    std::array images = {
-        RenderPassImage{
-            .format = VK_FORMAT_B8G8R8A8_SRGB,
-            .load_op = VK_ATTACHMENT_LOAD_OP_CLEAR,
-            .store_op = VK_ATTACHMENT_STORE_OP_STORE,
-        },
+    std::array clear_values = {
+        VkClearValue{.color = {0.5f, 0.7f, 0.9f, 1.0f}},
     };
-
-    RenderPass render_pass({
-        .device = m_device,
-        .size = m_size,
-        .images = images,
-    });
+    std::array image_views = {view};
 
     auto cmd = record_command_buffer(m_device, m_command_pool, [&](auto cmd) {
         render_pass.execute(cmd, clear_values, image_views, [&]() {
@@ -959,8 +940,8 @@ void Renderer::render()
         .waitSemaphoreCount = 1,
         .pWaitSemaphores = &m_rendering_finished,
         .swapchainCount = 1,
-        .pSwapchains = &m_swapchain,
-        .pImageIndices = &image_index,
+        .pSwapchains = m_swapchain.as_ptr(),
+        .pImageIndices = &index,
         .pResults = nullptr,
     };
 
