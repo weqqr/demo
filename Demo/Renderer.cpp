@@ -2,6 +2,7 @@
 #include <DM/Log.h>
 #include <Demo/Renderer.h>
 #include <Demo/Window.h>
+#include <GLFW/glfw3.h>
 #include <windows.h> // GetModuleHandle
 
 #include <algorithm>
@@ -584,6 +585,10 @@ void RenderPass::end_render_pass(VkCommandBuffer cmd)
 #pragma endregion
 
 #pragma region pipeline
+struct PushConstants {
+    float time;
+};
+
 static VkShaderModule create_shader_module(VkDevice device, std::span<uint8_t> spirv_bytes)
 {
     VkShaderModuleCreateInfo create_info = {
@@ -609,19 +614,31 @@ static std::vector<uint8_t> load_binary_file(std::string_view path)
     return buffer;
 }
 
-static VkPipeline create_pipeline(VkDevice device, VkRenderPass render_pass)
+static VkPipelineLayout create_pipeline_layout(VkDevice device)
 {
+    VkPushConstantRange push_constant_range = {
+        .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
+        .offset = 0,
+        .size = sizeof(PushConstants),
+    };
+
     VkPipelineLayoutCreateInfo layout_create_info = {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
         .setLayoutCount = 0,
         .pSetLayouts = nullptr,
-        .pushConstantRangeCount = 0,
-        .pPushConstantRanges = nullptr,
+        .pushConstantRangeCount = 1,
+        .pPushConstantRanges = &push_constant_range,
     };
+
     VkPipelineLayout layout = VK_NULL_HANDLE;
     auto result = vkCreatePipelineLayout(device, &layout_create_info, nullptr, &layout);
     VK_ASSERT(result);
 
+    return layout;
+}
+
+static VkPipeline create_pipeline(VkDevice device, VkRenderPass render_pass, VkPipelineLayout layout)
+{
     auto vertex_spirv = load_binary_file("../Demo/Shaders/demo.vert.spv");
     auto fragment_spirv = load_binary_file("../Demo/Shaders/demo.frag.spv");
 
@@ -755,9 +772,8 @@ static VkPipeline create_pipeline(VkDevice device, VkRenderPass render_pass)
     };
 
     VkPipeline pipeline = VK_NULL_HANDLE;
-    result = vkCreateGraphicsPipelines(device, nullptr, 1, &pipeline_create_info, nullptr, &pipeline);
+    auto result = vkCreateGraphicsPipelines(device, nullptr, 1, &pipeline_create_info, nullptr, &pipeline);
 
-    vkDestroyPipelineLayout(device, layout, nullptr);
     vkDestroyShaderModule(device, vertex_shader, nullptr);
     vkDestroyShaderModule(device, fragment_shader, nullptr);
 
@@ -810,13 +826,15 @@ Renderer::Renderer(const Window& window)
         .images = images,
     });
 
-    m_pipeline = create_pipeline(m_device, render_pass.raw());
+    m_layout = create_pipeline_layout(m_device);
+    m_pipeline = create_pipeline(m_device, render_pass.raw(), m_layout);
 }
 
 Renderer::~Renderer()
 {
     if (m_device) {
         vkDestroyPipeline(m_device, m_pipeline, nullptr);
+        vkDestroyPipelineLayout(m_device, m_layout, nullptr);
 
         vkDestroyFence(m_device, m_gpu_work_finished, nullptr);
         vkDestroySemaphore(m_device, m_next_image_acquired, nullptr);
@@ -915,11 +933,16 @@ void Renderer::render()
     };
     std::array image_views = {view};
 
+    PushConstants push_constants = {
+        .time = static_cast<float>(glfwGetTime()),
+    };
+
     auto cmd = record_command_buffer(m_device, m_command_pool, [&](auto cmd) {
         render_pass.execute(cmd, clear_values, image_views, [&]() {
             vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline);
             vkCmdSetViewport(cmd, 0, 1, &viewport);
             vkCmdSetScissor(cmd, 0, 1, &scissor);
+            vkCmdPushConstants(cmd, m_layout, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(PushConstants), &push_constants);
             vkCmdDraw(cmd, 3, 1, 0, 0);
         });
     });

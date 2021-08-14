@@ -30,7 +30,7 @@ void run()
     });
 
     while (!window.close_requested() && !window.key_pressed(GLFW_KEY_ESCAPE)) {
-        glfwWaitEvents();
+        glfwWaitEventsTimeout(1.0 / 60.0);
         renderer.render();
     }
 }

@@ -128,6 +128,7 @@ private:
     VkSemaphore m_next_image_acquired = VK_NULL_HANDLE;
     VkFence m_gpu_work_finished = VK_NULL_HANDLE;
 
+    VkPipelineLayout m_layout = VK_NULL_HANDLE;
     VkPipeline m_pipeline = VK_NULL_HANDLE;
 
     Size m_size = {0, 0};
