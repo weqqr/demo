@@ -813,9 +813,6 @@ Renderer::Renderer(const Window& window)
     m_pipeline = create_pipeline(m_device, render_pass.raw());
 }
 
-template<typename T>
-void drop(T t) { }
-
 Renderer::~Renderer()
 {
     if (m_device) {
@@ -828,7 +825,7 @@ Renderer::~Renderer()
         vmaDestroyAllocator(m_allocator);
         vkDestroyCommandPool(m_device, m_command_pool, nullptr);
 
-        drop(move(m_swapchain));
+        DM::dispose(m_swapchain);
         vkDestroyDevice(m_device, nullptr);
     }
 
@@ -872,7 +869,7 @@ void Renderer::resize(Size size)
     m_size = size;
 
     if (size.rectangle_area() > 0) {
-        drop(move(m_swapchain));
+        DM::dispose(m_swapchain);
         m_swapchain = Swapchain(m_surface, m_physical_device, m_queue_families, m_device, m_size);
     }
 }
