@@ -871,12 +871,18 @@ void Renderer::resize(Size size)
     vkDeviceWaitIdle(m_device);
     m_size = size;
 
-    drop(move(m_swapchain));
-    m_swapchain = Swapchain(m_surface, m_physical_device, m_queue_families, m_device, m_size);
+    if (size.rectangle_area() > 0) {
+        drop(move(m_swapchain));
+        m_swapchain = Swapchain(m_surface, m_physical_device, m_queue_families, m_device, m_size);
+    }
 }
 
 void Renderer::render()
 {
+    if (m_size.rectangle_area() == 0) {
+        return;
+    }
+
     std::array images = {
         RenderPassImage{
             .format = VK_FORMAT_B8G8R8A8_SRGB,

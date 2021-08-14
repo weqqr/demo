@@ -8,8 +8,6 @@
 namespace Demo {
 static void resize_callback(GLFWwindow* window, int width, int height)
 {
-    ASSERT(width > 0 && height > 0);
-
     auto* w = static_cast<Window*>(glfwGetWindowUserPointer(window));
 
     w->m_resize_handler(Size(static_cast<uint32_t>(width), static_cast<uint32_t>(height)));
@@ -54,8 +52,6 @@ Size Window::size() const
     int height = 0;
 
     glfwGetFramebufferSize(m_window, &width, &height);
-
-    ASSERT(width >= 0 && height >= 0);
 
     return {static_cast<uint32_t>(width), static_cast<uint32_t>(height)};
 }
