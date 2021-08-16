@@ -14,5 +14,5 @@ layout (set = 0, binding = 0) uniform Uniforms {
 
 void main()
 {
-    color = vec4(v_uv, sin(uniforms.time), 1.0);
+    color = vec4(v_uv, 0.5 * sin(uniforms.time) + 0.5, 1.0);
 }

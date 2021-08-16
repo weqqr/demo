@@ -296,6 +296,21 @@ static VkPipeline create_pipeline(VkDevice device, VkRenderPass render_pass, VkP
     return pipeline;
 }
 
+Pipeline::Pipeline(VkDevice device, const RenderPass& render_pass, VkDescriptorSetLayout descriptor_set_layout)
+{
+    m_device = device;
+    m_layout = create_pipeline_layout(m_device, descriptor_set_layout);
+    m_pipeline = create_pipeline(m_device, render_pass.raw(), m_layout);
+}
+
+Pipeline::~Pipeline()
+{
+    if (m_device) {
+        vkDestroyPipeline(m_device, m_pipeline, nullptr);
+        vkDestroyPipelineLayout(m_device, m_layout, nullptr);
+    }
+}
+
 #pragma endregion
 
 #pragma region memory
@@ -361,7 +376,7 @@ Renderer::Renderer(const Window& window)
     });
 
     std::array pool_sizes = {
-        VkDescriptorPoolSize { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 16 },
+        VkDescriptorPoolSize{VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 16},
     };
 
     VkDescriptorPoolCreateInfo descriptor_pool_create_info = {
@@ -421,16 +436,13 @@ Renderer::Renderer(const Window& window)
 
     vkUpdateDescriptorSets(m_device, 1, &write_descriptor_set, 0, nullptr);
 
-    m_layout = create_pipeline_layout(m_device, m_descriptor_set_layout);
-    m_pipeline = create_pipeline(m_device, render_pass.raw(), m_layout);
+    m_pipeline = Pipeline(m_device, render_pass, m_descriptor_set_layout);
 }
 
 Renderer::~Renderer()
 {
     if (m_device) {
-        vkDestroyPipeline(m_device, m_pipeline, nullptr);
-        vkDestroyPipelineLayout(m_device, m_layout, nullptr);
-
+        DM::dispose(m_pipeline);
         DM::dispose(m_uniforms);
         // vkFreeDescriptorSets(m_device, m_descriptor_pool, 1, &m_descriptor_set);
         vkDestroyDescriptorSetLayout(m_device, m_descriptor_set_layout, nullptr);
@@ -540,11 +552,11 @@ void Renderer::render()
 
     auto cmd = record_command_buffer(m_device, m_command_pool, [&](auto cmd) {
         render_pass.execute(cmd, clear_values, image_views, [&]() {
-            vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline);
+            vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline.raw());
             vkCmdSetViewport(cmd, 0, 1, &viewport);
             vkCmdSetScissor(cmd, 0, 1, &scissor);
-            vkCmdPushConstants(cmd, m_layout, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(PushConstants), &push_constants);
-            vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_layout, 0, 1, &m_descriptor_set, 0, nullptr);
+            vkCmdPushConstants(cmd, m_pipeline.layout(), VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(PushConstants), &push_constants);
+            vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline.layout(), 0, 1, &m_descriptor_set, 0, nullptr);
             vkCmdDraw(cmd, 3, 1, 0, 0);
         });
     });
