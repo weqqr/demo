@@ -2,23 +2,14 @@
 
 #include <DM/Base.h>
 #include <DM/Types.h>
+#include <Demo/RendererBase.h>
 #include <Demo/Window.h>
 #include <span>
 #include <vector>
-#include <volk.h>
 #define VMA_STATIC_VULKAN_FUNCTIONS 0
 #include <vk_mem_alloc.h>
 
 namespace Demo {
-struct QueueFamilies {
-    uint32_t graphics = VK_QUEUE_FAMILY_IGNORED;
-    uint32_t present = VK_QUEUE_FAMILY_IGNORED;
-    uint32_t compute = VK_QUEUE_FAMILY_IGNORED;
-
-    QueueFamilies() = default;
-    QueueFamilies(VkPhysicalDevice device, VkSurfaceKHR surface);
-};
-
 struct RenderPassDesc;
 
 class RenderPass : DM::NonCopyable {
@@ -77,12 +68,12 @@ public:
     std::pair<VkImageView, uint32_t> acquire_next_image(VkSemaphore semaphore);
     const VkSwapchainKHR* as_ptr() const { return &m_swapchain; }
 
-    Swapchain(Swapchain&& other)
+    Swapchain(Swapchain&& other) noexcept
     {
         *this = move(other);
     }
 
-    Swapchain& operator=(Swapchain&& other)
+    Swapchain& operator=(Swapchain&& other) noexcept
     {
         DM::swap(m_device, other.m_device);
         DM::swap(m_swapchain, other.m_swapchain);
@@ -100,7 +91,33 @@ private:
     std::vector<VkImageView> m_swapchain_image_views;
 };
 
-class Renderer : DM::NonCopyable {
+class Buffer : DM::NonCopyable {
+public:
+    Buffer() = default;
+    Buffer(VmaAllocator allocator, size_t size, VkBufferUsageFlags buffer_usage, VmaMemoryUsage memory_usage);
+    ~Buffer();
+
+    Buffer(Buffer&& other) noexcept
+    {
+        *this = move(other);
+    }
+
+    Buffer& operator=(Buffer&& other) noexcept
+    {
+        DM::swap(m_allocator, other.m_allocator);
+        DM::swap(m_buffer, other.m_buffer);
+        DM::swap(m_allocation, other.m_allocation);
+
+        return *this;
+    }
+
+private:
+    VmaAllocator m_allocator = VK_NULL_HANDLE;
+    VkBuffer m_buffer = VK_NULL_HANDLE;
+    VmaAllocation m_allocation = VK_NULL_HANDLE;
+};
+
+class Renderer : public RendererBase {
 public:
     explicit Renderer(const Window& window);
     ~Renderer();
@@ -108,16 +125,6 @@ public:
     void resize(Size size);
 
 private:
-    VkInstance m_instance = VK_NULL_HANDLE;
-    VkDebugUtilsMessengerEXT m_debug_messenger = VK_NULL_HANDLE;
-    VkSurfaceKHR m_surface = VK_NULL_HANDLE;
-    VkPhysicalDevice m_physical_device = VK_NULL_HANDLE;
-    QueueFamilies m_queue_families = {};
-    VkDevice m_device = VK_NULL_HANDLE;
-    VkQueue m_graphics = VK_NULL_HANDLE;
-    VkQueue m_compute = VK_NULL_HANDLE;
-    VkQueue m_present = VK_NULL_HANDLE;
-
     Swapchain m_swapchain = {};
 
     VkCommandPool m_command_pool = VK_NULL_HANDLE;

@@ -45,6 +45,7 @@ add_custom_target(DemoShaders DEPENDS ${SPIRV_PATHS})
 add_executable(Demo
     Demo/Main.cpp
     Demo/Renderer.cpp
+    Demo/RendererBase.cpp
     Demo/Window.cpp)
 add_dependencies(Demo DemoShaders)
 target_compile_features(Demo PUBLIC cxx_std_20)
