@@ -8,7 +8,11 @@ layout (push_constant) uniform PushConstants {
     float time;
 } push_constants;
 
+layout (set = 0, binding = 0) uniform Uniforms {
+    float time;
+} uniforms;
+
 void main()
 {
-    color = vec4(v_uv, sin(push_constants.time), 1.0);
+    color = vec4(v_uv, sin(uniforms.time), 1.0);
 }

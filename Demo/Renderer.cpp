@@ -100,146 +100,6 @@ static VkFence create_fence(VkDevice device, bool signaled = false)
     return fence;
 }
 
-#pragma region render pass
-struct RenderPassImage {
-    VkFormat format;
-    VkAttachmentLoadOp load_op;
-    VkAttachmentStoreOp store_op;
-    std::optional<VkClearValue> clear_value;
-};
-
-struct RenderPassDesc {
-    VkDevice device;
-    Size size;
-    std::span<RenderPassImage> images;
-};
-
-RenderPass::RenderPass(const RenderPassDesc& desc)
-{
-    ASSERT(desc.images.size() > 0);
-
-    m_device = desc.device;
-    m_size = desc.size;
-
-    std::vector<VkAttachmentDescription> attachments;
-    std::vector<VkAttachmentReference> attachment_refs;
-    std::vector<VkFramebufferAttachmentImageInfo> framebuffer_attachments;
-    std::vector<VkClearValue> clear_values;
-
-    for (auto image : desc.images) {
-        VkAttachmentDescription attachment = {
-            .format = image.format,
-            .samples = VK_SAMPLE_COUNT_1_BIT,
-            .loadOp = image.load_op,
-            .storeOp = image.store_op,
-            .stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
-            .stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
-            .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-            .finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
-        };
-
-        VkAttachmentReference attachment_ref = {
-            .attachment = 0,
-            .layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-        };
-
-        VkFramebufferAttachmentImageInfo fb_attachment_image_info = {
-            .sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_ATTACHMENT_IMAGE_INFO,
-            .usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
-            .width = desc.size.width,
-            .height = desc.size.height,
-            .layerCount = 1,
-            .viewFormatCount = 1,
-            .pViewFormats = &image.format,
-        };
-
-        attachments.push_back(attachment);
-        attachment_refs.push_back(attachment_ref);
-        framebuffer_attachments.push_back(fb_attachment_image_info);
-
-        if (image.clear_value) {
-            clear_values.push_back(*image.clear_value);
-        }
-    }
-
-    VkSubpassDescription subpass = {
-        .pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS,
-        .inputAttachmentCount = 0,
-        .pInputAttachments = nullptr,
-        .colorAttachmentCount = static_cast<uint32_t>(attachment_refs.size()),
-        .pColorAttachments = attachment_refs.data(),
-        .pResolveAttachments = nullptr,
-        .pDepthStencilAttachment = nullptr,
-        .preserveAttachmentCount = 0,
-        .pPreserveAttachments = nullptr,
-    };
-
-    VkRenderPassCreateInfo rp_create_info = {
-        .sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO,
-        .attachmentCount = static_cast<uint32_t>(attachments.size()),
-        .pAttachments = attachments.data(),
-        .subpassCount = 1,
-        .pSubpasses = &subpass,
-        .dependencyCount = 0,
-        .pDependencies = nullptr,
-    };
-
-    auto result = vkCreateRenderPass(m_device, &rp_create_info, nullptr, &m_render_pass);
-    VK_ASSERT(result);
-
-    VkFramebufferAttachmentsCreateInfo fb_attachments_create_info = {
-        .sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_ATTACHMENTS_CREATE_INFO,
-        .attachmentImageInfoCount = static_cast<uint32_t>(framebuffer_attachments.size()),
-        .pAttachmentImageInfos = framebuffer_attachments.data(),
-    };
-
-    VkFramebufferCreateInfo fb_create_info = {
-        .sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,
-        .pNext = &fb_attachments_create_info,
-        .flags = VK_FRAMEBUFFER_CREATE_IMAGELESS_BIT,
-        .renderPass = m_render_pass,
-        .attachmentCount = 1,
-        .pAttachments = nullptr,
-        .width = desc.size.width,
-        .height = desc.size.height,
-        .layers = 1,
-    };
-
-    result = vkCreateFramebuffer(m_device, &fb_create_info, nullptr, &m_framebuffer);
-    VK_ASSERT(result);
-}
-
-void RenderPass::begin_render_pass(VkCommandBuffer cmd, std::span<VkClearValue> clear_values, std::span<VkImageView> images)
-{
-    VkRenderPassAttachmentBeginInfo rp_attachment_begin_info = {
-        .sType = VK_STRUCTURE_TYPE_RENDER_PASS_ATTACHMENT_BEGIN_INFO,
-        .attachmentCount = static_cast<uint32_t>(images.size()),
-        .pAttachments = images.data(),
-    };
-
-    VkRenderPassBeginInfo rp_begin_info = {
-        .sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
-        .pNext = &rp_attachment_begin_info,
-        .renderPass = m_render_pass,
-        .framebuffer = m_framebuffer,
-        .renderArea = {
-            .offset = {0, 0},
-            .extent = {m_size.width, m_size.height},
-        },
-        .clearValueCount = static_cast<uint32_t>(clear_values.size()),
-        .pClearValues = clear_values.data(),
-    };
-
-    vkCmdBeginRenderPass(cmd, &rp_begin_info, VK_SUBPASS_CONTENTS_INLINE);
-}
-
-void RenderPass::end_render_pass(VkCommandBuffer cmd)
-{
-    vkCmdEndRenderPass(cmd);
-}
-
-#pragma endregion
-
 #pragma region pipeline
 struct PushConstants {
     float time;
@@ -270,7 +130,7 @@ static std::vector<uint8_t> load_binary_file(std::string_view path)
     return buffer;
 }
 
-static VkPipelineLayout create_pipeline_layout(VkDevice device)
+static VkPipelineLayout create_pipeline_layout(VkDevice device, VkDescriptorSetLayout descriptor_set_layout)
 {
     VkPushConstantRange push_constant_range = {
         .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
@@ -280,8 +140,8 @@ static VkPipelineLayout create_pipeline_layout(VkDevice device)
 
     VkPipelineLayoutCreateInfo layout_create_info = {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
-        .setLayoutCount = 0,
-        .pSetLayouts = nullptr,
+        .setLayoutCount = 1,
+        .pSetLayouts = &descriptor_set_layout,
         .pushConstantRangeCount = 1,
         .pPushConstantRanges = &push_constant_range,
     };
@@ -442,6 +302,8 @@ static VkPipeline create_pipeline(VkDevice device, VkRenderPass render_pass, VkP
 
 Buffer::Buffer(VmaAllocator allocator, size_t size, VkBufferUsageFlags buffer_usage, VmaMemoryUsage memory_usage)
 {
+    m_allocator = allocator;
+
     VkBufferCreateInfo buffer_create_info = {
         .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
         .size = size,
@@ -464,6 +326,10 @@ Buffer::~Buffer()
 }
 
 #pragma endregion
+
+struct Uniforms {
+    float time;
+};
 
 Renderer::Renderer(const Window& window)
     : RendererBase(window)
@@ -494,7 +360,68 @@ Renderer::Renderer(const Window& window)
         .images = images,
     });
 
-    m_layout = create_pipeline_layout(m_device);
+    std::array pool_sizes = {
+        VkDescriptorPoolSize { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 16 },
+    };
+
+    VkDescriptorPoolCreateInfo descriptor_pool_create_info = {
+        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
+        .maxSets = 16,
+        .poolSizeCount = static_cast<uint32_t>(pool_sizes.size()),
+        .pPoolSizes = pool_sizes.data(),
+    };
+
+    auto result = vkCreateDescriptorPool(m_device, &descriptor_pool_create_info, nullptr, &m_descriptor_pool);
+    VK_ASSERT(result);
+
+    VkDescriptorSetLayoutBinding binding = {
+        .binding = 0,
+        .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+        .descriptorCount = 1,
+        .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
+    };
+
+    VkDescriptorSetLayoutCreateInfo descriptor_set_layout_create_info = {
+        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
+        .bindingCount = 1,
+        .pBindings = &binding,
+    };
+
+    result = vkCreateDescriptorSetLayout(m_device, &descriptor_set_layout_create_info, nullptr, &m_descriptor_set_layout);
+    VK_ASSERT(result);
+
+    VkDescriptorSetAllocateInfo descriptor_set_allocate_info = {
+        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
+        .descriptorPool = m_descriptor_pool,
+        .descriptorSetCount = 1,
+        .pSetLayouts = &m_descriptor_set_layout,
+    };
+
+    result = vkAllocateDescriptorSets(m_device, &descriptor_set_allocate_info, &m_descriptor_set);
+    VK_ASSERT(result);
+
+    m_uniforms = Buffer(m_allocator, sizeof(Uniforms), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
+
+    // Point descriptor to buffer
+
+    VkDescriptorBufferInfo buffer_info = {
+        .buffer = m_uniforms.raw(),
+        .offset = 0,
+        .range = sizeof(Uniforms),
+    };
+
+    VkWriteDescriptorSet write_descriptor_set = {
+        .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+        .dstSet = m_descriptor_set,
+        .dstBinding = 0,
+        .descriptorCount = 1,
+        .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+        .pBufferInfo = &buffer_info,
+    };
+
+    vkUpdateDescriptorSets(m_device, 1, &write_descriptor_set, 0, nullptr);
+
+    m_layout = create_pipeline_layout(m_device, m_descriptor_set_layout);
     m_pipeline = create_pipeline(m_device, render_pass.raw(), m_layout);
 }
 
@@ -503,6 +430,11 @@ Renderer::~Renderer()
     if (m_device) {
         vkDestroyPipeline(m_device, m_pipeline, nullptr);
         vkDestroyPipelineLayout(m_device, m_layout, nullptr);
+
+        DM::dispose(m_uniforms);
+        // vkFreeDescriptorSets(m_device, m_descriptor_pool, 1, &m_descriptor_set);
+        vkDestroyDescriptorSetLayout(m_device, m_descriptor_set_layout, nullptr);
+        vkDestroyDescriptorPool(m_device, m_descriptor_pool, nullptr);
 
         vkDestroyFence(m_device, m_gpu_work_finished, nullptr);
         vkDestroySemaphore(m_device, m_next_image_acquired, nullptr);
@@ -598,12 +530,21 @@ void Renderer::render()
         .time = static_cast<float>(glfwGetTime()),
     };
 
+    Uniforms uniforms = {
+        .time = static_cast<float>(glfwGetTime()),
+    };
+
+    m_uniforms.map([&](auto* ptr) {
+        memcpy(ptr, &uniforms, sizeof(Uniforms));
+    });
+
     auto cmd = record_command_buffer(m_device, m_command_pool, [&](auto cmd) {
         render_pass.execute(cmd, clear_values, image_views, [&]() {
             vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline);
             vkCmdSetViewport(cmd, 0, 1, &viewport);
             vkCmdSetScissor(cmd, 0, 1, &scissor);
             vkCmdPushConstants(cmd, m_layout, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(PushConstants), &push_constants);
+            vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_layout, 0, 1, &m_descriptor_set, 0, nullptr);
             vkCmdDraw(cmd, 3, 1, 0, 0);
         });
     });

@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.8)
 project(Demo)
 
-add_compile_definitions(VK_USE_PLATFORM_WIN32_KHR WIN32_LEAN_AND_MEAN)
+add_compile_definitions(VK_USE_PLATFORM_WIN32_KHR WIN32_LEAN_AND_MEAN NOMINMAX)
 
 add_subdirectory(Vendor/fmt)
 add_subdirectory(Vendor/glfw)
@@ -46,6 +46,7 @@ add_executable(Demo
     Demo/Main.cpp
     Demo/Renderer.cpp
     Demo/RendererBase.cpp
+    Demo/RenderPass.cpp
     Demo/Swapchain.cpp
     Demo/Window.cpp)
 add_dependencies(Demo DemoShaders)
