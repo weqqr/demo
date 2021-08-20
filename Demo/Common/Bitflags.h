@@ -1,8 +1,8 @@
 #pragma once
 
-#include <DM/Traits.h>
+#include <Demo/Common/Traits.h>
 
-namespace DM {
+namespace Demo {
 #define DM_BITFLAGS(BitFlags)                                                    \
     static inline BitFlags operator|(BitFlags lhs, BitFlags rhs)                 \
     {                                                                            \

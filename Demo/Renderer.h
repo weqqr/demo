@@ -1,7 +1,7 @@
 #pragma once
 
-#include <DM/Base.h>
-#include <DM/Types.h>
+#include <Demo/Common/Base.h>
+#include <Demo/Common/Types.h>
 #include <Demo/Pipeline.h>
 #include <Demo/RenderPass.h>
 #include <Demo/RendererBase.h>
@@ -13,7 +13,7 @@
 #include <vk_mem_alloc.h>
 
 namespace Demo {
-class Buffer : DM::NonCopyable {
+class Buffer : NonCopyable {
 public:
     Buffer() = default;
     Buffer(VmaAllocator allocator, size_t size, VkBufferUsageFlags buffer_usage, VmaMemoryUsage memory_usage);
@@ -38,9 +38,9 @@ public:
 
     Buffer& operator=(Buffer&& other) noexcept
     {
-        DM::swap(m_allocator, other.m_allocator);
-        DM::swap(m_buffer, other.m_buffer);
-        DM::swap(m_allocation, other.m_allocation);
+        swap(m_allocator, other.m_allocator);
+        swap(m_buffer, other.m_buffer);
+        swap(m_allocation, other.m_allocation);
 
         return *this;
     }

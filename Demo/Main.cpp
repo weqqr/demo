@@ -1,11 +1,8 @@
-#include <DM/Base.h>
-#include <DM/Log.h>
-#include <DM/Types.h>
+#include <Demo/Common/Base.h>
+#include <Demo/Common/Types.h>
 #include <Demo/Renderer.h>
 #include <Demo/Window.h>
 #include <GLFW/glfw3.h>
-
-using namespace DM;
 
 namespace Demo {
 void init()

@@ -8,18 +8,6 @@ add_subdirectory(Vendor/glfw)
 add_subdirectory(Vendor/vma)
 add_subdirectory(Vendor/volk)
 
-#   DM   #######################################################################
-
-add_library(DM
-    DM/Base.cpp
-    DM/Bitflags.h
-    DM/Log.cpp
-    DM/Traits.h
-    DM/Types.h)
-target_compile_features(DM PUBLIC cxx_std_20)
-target_include_directories(DM PUBLIC ${CMAKE_CURRENT_LIST_DIR})
-target_link_libraries(DM fmt::fmt)
-
 #    Shaders   #################################################################
 
 file(GLOB SHADER_SOURCES
@@ -43,6 +31,8 @@ add_custom_target(DemoShaders DEPENDS ${SPIRV_PATHS})
 #   Demo   #####################################################################
 
 add_executable(Demo
+    Demo/Common/Base.cpp
+    Demo/Common/Log.cpp
     Demo/Main.cpp
     Demo/Mesh.cpp
     Demo/Pipeline.cpp
@@ -55,4 +45,4 @@ add_executable(Demo
 add_dependencies(Demo DemoShaders)
 target_compile_features(Demo PUBLIC cxx_std_20)
 target_include_directories(Demo PUBLIC ${CMAKE_CURRENT_LIST_DIR})
-target_link_libraries(Demo DM glfw vma volk)
+target_link_libraries(Demo fmt glfw vma volk)

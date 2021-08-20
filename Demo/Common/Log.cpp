@@ -1,4 +1,4 @@
-#include <DM/Log.h>
+#include <Demo/Common/Log.h>
 
 #define DM_COLORED_OUTPUT 0
 
@@ -14,7 +14,7 @@
 #define DM_RESET ""
 #endif
 
-namespace DM::Impl {
+namespace Demo::Impl {
 void log(LogLevel level, const char* format, const fmt::format_args& args)
 {
     auto text = fmt::vformat(format, args);

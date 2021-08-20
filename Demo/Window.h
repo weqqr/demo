@@ -1,6 +1,6 @@
 #pragma once
 
-#include <DM/Types.h>
+#include <Demo/Common/Types.h>
 #include <functional>
 
 struct GLFWwindow;
@@ -24,7 +24,7 @@ struct Size {
 
 static constexpr Size SIZE_UNBOUNDED = Size(-1, -1);
 
-class Window : DM::NonCopyable {
+class Window : NonCopyable {
     friend void resize_callback(GLFWwindow* window, int width, int height);
 
 public:

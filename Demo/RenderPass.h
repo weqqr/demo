@@ -18,7 +18,7 @@ struct RenderPassDesc {
     std::span<RenderPassImage> images;
 };
 
-class RenderPass : DM::NonCopyable {
+class RenderPass : NonCopyable {
 public:
     RenderPass() = default;
     RenderPass(const RenderPassDesc& desc);
@@ -48,10 +48,10 @@ public:
 
     RenderPass& operator=(RenderPass&& other) noexcept
     {
-        DM::swap(m_device, other.m_device);
-        DM::swap(m_framebuffer, other.m_framebuffer);
-        DM::swap(m_render_pass, other.m_render_pass);
-        DM::swap(m_size, other.m_size);
+        swap(m_device, other.m_device);
+        swap(m_framebuffer, other.m_framebuffer);
+        swap(m_render_pass, other.m_render_pass);
+        swap(m_size, other.m_size);
         return *this;
     }
 

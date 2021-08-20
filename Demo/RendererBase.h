@@ -1,6 +1,6 @@
 #pragma once
 
-#include <DM/Base.h>
+#include <Demo/Common/Base.h>
 #include <Demo/Window.h>
 #include <vector>
 #include <volk.h>
@@ -19,7 +19,7 @@ struct QueueFamilies {
     std::vector<uint32_t> unique() const;
 };
 
-class RendererBase : DM::NonCopyable {
+class RendererBase : NonCopyable {
 public:
     RendererBase() = default;
     RendererBase(const Window& window);

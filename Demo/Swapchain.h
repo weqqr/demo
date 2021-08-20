@@ -4,7 +4,7 @@
 #include <vector>
 
 namespace Demo {
-class Swapchain : DM::NonCopyable {
+class Swapchain : NonCopyable {
 public:
     Swapchain() = default;
     Swapchain(VkSurfaceKHR surface, VkPhysicalDevice physical_device, QueueFamilies queue_families, VkDevice device, Size size);
@@ -20,10 +20,10 @@ public:
 
     Swapchain& operator=(Swapchain&& other) noexcept
     {
-        DM::swap(m_device, other.m_device);
-        DM::swap(m_swapchain, other.m_swapchain);
-        DM::swap(m_swapchain_images, other.m_swapchain_images);
-        DM::swap(m_swapchain_image_views, other.m_swapchain_image_views);
+        swap(m_device, other.m_device);
+        swap(m_swapchain, other.m_swapchain);
+        swap(m_swapchain_images, other.m_swapchain_images);
+        swap(m_swapchain_image_views, other.m_swapchain_image_views);
 
         return *this;
     }

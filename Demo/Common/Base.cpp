@@ -3,11 +3,11 @@
 #define _CRT_SECURE_NO_WARNINGS
 #endif
 
-#include <DM/Base.h>
+#include <Demo/Common/Base.h>
 #include <cstdio>
 #include <cstdlib>
 
-namespace DM::Impl {
+namespace Demo::Impl {
 [[noreturn]] static void _break()
 {
 #ifdef NDEBUG

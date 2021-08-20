@@ -1,5 +1,5 @@
-#include <DM/Base.h>
-#include <DM/Log.h>
+#include <Demo/Common/Base.h>
+#include <Demo/Common/Log.h>
 #include <Demo/Config.h>
 #include <Demo/Renderer.h>
 #include <Demo/Window.h>
@@ -258,8 +258,8 @@ Renderer::Renderer(const Window& window)
 Renderer::~Renderer()
 {
     if (m_device) {
-        DM::dispose(m_pipeline);
-        DM::dispose(m_uniforms);
+        dispose(m_pipeline);
+        dispose(m_uniforms);
         // vkFreeDescriptorSets(m_device, m_descriptor_pool, 1, &m_descriptor_set);
         vkDestroyDescriptorSetLayout(m_device, m_descriptor_set_layout, nullptr);
         vkDestroyDescriptorPool(m_device, m_descriptor_pool, nullptr);
@@ -271,7 +271,7 @@ Renderer::~Renderer()
         vmaDestroyAllocator(m_allocator);
         vkDestroyCommandPool(m_device, m_command_pool, nullptr);
 
-        DM::dispose(m_swapchain);
+        dispose(m_swapchain);
     }
 }
 
@@ -309,7 +309,7 @@ void Renderer::resize(Size size)
     m_size = size;
 
     if (size.rectangle_area() > 0) {
-        DM::dispose(m_swapchain);
+        dispose(m_swapchain);
         m_swapchain = Swapchain(m_surface, m_physical_device, m_queue_families, m_device, m_size);
     }
 }

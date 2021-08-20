@@ -1,12 +1,12 @@
 #pragma once
 
-#include <DM/Types.h>
+#include <Demo/Common/Types.h>
 #include <volk.h>
 
 #include <span>
 
 namespace Demo {
-class Shader : DM::NonCopyable {
+class Shader : NonCopyable {
 public:
     Shader() = default;
     Shader(VkDevice device, std::span<uint8_t> spirv_bytes);
@@ -21,8 +21,8 @@ public:
 
     Shader& operator=(Shader&& other) noexcept
     {
-        DM::swap(m_device, other.m_device);
-        DM::swap(m_module, other.m_module);
+        swap(m_device, other.m_device);
+        swap(m_module, other.m_module);
 
         return *this;
     }

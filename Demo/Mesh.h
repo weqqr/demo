@@ -14,6 +14,7 @@ struct Vertex {
 class Mesh {
 public:
     Mesh() = default;
+    void add_vertex();
 
 private:
     std::vector<float> m_data;

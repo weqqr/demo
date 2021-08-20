@@ -1,7 +1,7 @@
 #pragma once
 
-#include <Demo/RendererBase.h>
 #include <Demo/RenderPass.h>
+#include <Demo/RendererBase.h>
 #include <Demo/Shader.h>
 #include <vector>
 
@@ -16,7 +16,7 @@ struct GraphicsPipelineDesc {
     Shader fragment_shader;
 };
 
-class GraphicsPipeline : DM::NonCopyable {
+class GraphicsPipeline : NonCopyable {
 public:
     GraphicsPipeline() = default;
     GraphicsPipeline(GraphicsPipelineDesc& desc);
@@ -32,9 +32,9 @@ public:
 
     GraphicsPipeline& operator=(GraphicsPipeline&& other) noexcept
     {
-        DM::swap(m_device, other.m_device);
-        DM::swap(m_layout, other.m_layout);
-        DM::swap(m_pipeline, other.m_pipeline);
+        swap(m_device, other.m_device);
+        swap(m_layout, other.m_layout);
+        swap(m_pipeline, other.m_pipeline);
 
         return *this;
     }

@@ -1,6 +1,6 @@
 #pragma once
 
-namespace DM {
+namespace Demo {
 class NonCopyable {
 public:
     NonCopyable() = default;
@@ -31,15 +31,3 @@ static_assert(sizeof(int16_t) == 2);
 static_assert(sizeof(int32_t) == 4);
 static_assert(sizeof(int64_t) == 8);
 }
-
-using DM::uint8_t;
-using DM::uint16_t;
-using DM::uint32_t;
-using DM::uint64_t;
-
-using DM::int8_t;
-using DM::int16_t;
-using DM::int32_t;
-using DM::int64_t;
-
-using DM::size_t;
