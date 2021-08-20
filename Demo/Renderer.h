@@ -2,6 +2,7 @@
 
 #include <DM/Base.h>
 #include <DM/Types.h>
+#include <Demo/Pipeline.h>
 #include <Demo/RenderPass.h>
 #include <Demo/RendererBase.h>
 #include <Demo/Swapchain.h>
@@ -50,35 +51,6 @@ private:
     VmaAllocation m_allocation = VK_NULL_HANDLE;
 };
 
-class Pipeline : DM::NonCopyable {
-public:
-    Pipeline() = default;
-    Pipeline(VkDevice device, const RenderPass& render_pass, VkDescriptorSetLayout descriptor_set_layout);
-    ~Pipeline();
-
-    VkPipelineLayout layout() const { return m_layout; }
-    VkPipeline raw() const { return m_pipeline; }
-
-    Pipeline(Pipeline&& other) noexcept
-    {
-        *this = move(other);
-    }
-
-    Pipeline& operator=(Pipeline&& other) noexcept
-    {
-        DM::swap(m_device, other.m_device);
-        DM::swap(m_layout, other.m_layout);
-        DM::swap(m_pipeline, other.m_pipeline);
-
-        return *this;
-    }
-
-private:
-    VkDevice m_device = VK_NULL_HANDLE;
-    VkPipelineLayout m_layout = VK_NULL_HANDLE;
-    VkPipeline m_pipeline = VK_NULL_HANDLE;
-};
-
 class Renderer : public RendererBase {
 public:
     explicit Renderer(const Window& window);
@@ -102,7 +74,7 @@ private:
     VkDescriptorSet m_descriptor_set = VK_NULL_HANDLE;
     Buffer m_uniforms = {};
 
-    Pipeline m_pipeline = {};
+    GraphicsPipeline m_pipeline = {};
 
     Size m_size = {0, 0};
 };

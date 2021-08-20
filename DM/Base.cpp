@@ -13,8 +13,11 @@ namespace DM::Impl {
 #ifdef NDEBUG
     exit(1);
 #else
-    exit(1);
     __debugbreak();
+
+    // This effectively silences noreturn warning. Actual exiting is performed
+    // by intrinsic above, but it isn't marked as [[noreturn]] for some reason
+    exit(1);
 #endif
 }
 

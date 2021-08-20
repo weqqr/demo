@@ -1,7 +1,6 @@
 #include <DM/Log.h>
-#include <fmt/format.h>
 
-#define DM_COLORED_OUTPUT 1
+#define DM_COLORED_OUTPUT 0
 
 #if DM_COLORED_OUTPUT
 #define DM_RED "\033[0;31m"

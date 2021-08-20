@@ -44,9 +44,11 @@ add_custom_target(DemoShaders DEPENDS ${SPIRV_PATHS})
 
 add_executable(Demo
     Demo/Main.cpp
+    Demo/Pipeline.cpp
     Demo/Renderer.cpp
     Demo/RendererBase.cpp
     Demo/RenderPass.cpp
+    Demo/Shader.cpp
     Demo/Swapchain.cpp
     Demo/Window.cpp)
 add_dependencies(Demo DemoShaders)
