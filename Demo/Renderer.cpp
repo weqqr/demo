@@ -110,10 +110,6 @@ static std::vector<uint8_t> load_binary_file(std::string_view path)
     return buffer;
 }
 
-struct PushConstants {
-    float time;
-};
-
 #pragma region memory
 
 Buffer::Buffer(VmaAllocator allocator, size_t size, VkBufferUsageFlags buffer_usage, VmaMemoryUsage memory_usage)
@@ -143,6 +139,10 @@ Buffer::~Buffer()
 
 #pragma endregion
 
+struct PushConstants {
+    float time;
+};
+
 struct Uniforms {
     float time;
 };
@@ -151,11 +151,8 @@ Renderer::Renderer(const Window& window)
     : RendererBase(window)
 {
     m_size = window.size();
-
     m_swapchain = Swapchain(m_surface, m_physical_device, m_queue_families, m_device, m_size);
-
     m_command_pool = create_command_pool(m_device, m_queue_families.graphics);
-
     m_allocator = create_allocator(m_instance, m_physical_device, m_device);
 
     m_rendering_finished = create_semaphore(m_device);
@@ -219,7 +216,6 @@ Renderer::Renderer(const Window& window)
     m_uniforms = Buffer(m_allocator, sizeof(Uniforms), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
 
     // Point descriptor to buffer
-
     VkDescriptorBufferInfo buffer_info = {
         .buffer = m_uniforms.raw(),
         .offset = 0,

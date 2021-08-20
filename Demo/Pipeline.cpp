@@ -8,12 +8,6 @@ static VkPipelineLayout create_pipeline_layout(
     const std::vector<VkDescriptorSetLayout>& descriptor_set_layouts,
     const std::vector<VkPushConstantRange>& push_constant_ranges)
 {
-    /*VkPushConstantRange push_constant_range = {
-        .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
-        .offset = 0,
-        .size = sizeof(PushConstants),
-    };*/
-
     VkPipelineLayoutCreateInfo layout_create_info = {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
         .setLayoutCount = static_cast<uint32_t>(descriptor_set_layouts.size()),
