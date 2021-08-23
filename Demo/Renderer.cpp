@@ -120,6 +120,8 @@ struct Uniforms {
     float time;
     float aspect_ratio;
     float fov;
+    float width;
+    float height;
 };
 
 Renderer::Renderer(const Window& window)
@@ -151,8 +153,8 @@ Renderer::Renderer(const Window& window)
     };
     m_descriptor_set = DescriptorSet(m_device, m_descriptor_set_allocator, bindings);
 
-    auto vertex_spirv = load_binary_file("../Demo/Shaders/demo.vert.spv");
-    auto fragment_spirv = load_binary_file("../Demo/Shaders/demo.frag.spv");
+    auto vertex_spirv = load_binary_file("../Demo/Shaders/fullscreen.vert.spv");
+    auto fragment_spirv = load_binary_file("../Demo/Shaders/fullscreen.frag.spv");
 
     m_pipeline = GraphicsPipeline({
         .device = m_device,
@@ -262,6 +264,8 @@ void Renderer::render()
         .time = static_cast<float>(glfwGetTime()),
         .aspect_ratio = static_cast<float>(m_size.width) / static_cast<float>(m_size.height),
         .fov = 90.0f,
+        .width = static_cast<float>(m_size.width),
+        .height = static_cast<float>(m_size.height),
     };
 
     m_uniforms.map([&](auto* ptr) {

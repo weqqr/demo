@@ -15,13 +15,18 @@ file(GLOB SHADER_SOURCES
     "${CMAKE_CURRENT_LIST_DIR}/Demo/Shaders/*.vert"
 )
 
+file(GLOB SHADER_LIBRARIES
+    "${CMAKE_CURRENT_LIST_DIR}/Demo/Shaders/*.glsl"
+)
+
 foreach(SHADER_PATH ${SHADER_SOURCES})
     get_filename_component(SHADER_FILE ${SHADER_PATH} NAME)
     set(SPIRV_PATH "${CMAKE_CURRENT_LIST_DIR}/Demo/Shaders/${SHADER_FILE}.spv")
+    message(STATUS "glslangValidator -V ${SHADER_PATH} -o ${SPIRV_PATH} -I${SHADER_INCLUDE_PATH}")
     add_custom_command(
         OUTPUT ${SPIRV_PATH}
         COMMAND glslangValidator -V ${SHADER_PATH} -o ${SPIRV_PATH}
-        DEPENDS ${SHADER_PATH}
+        DEPENDS ${SHADER_PATH} ${SHADER_LIBRARIES}
     )
     list(APPEND SPIRV_PATHS ${SPIRV_PATH})
 endforeach()
