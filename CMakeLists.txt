@@ -34,6 +34,7 @@ add_executable(Demo
     Demo/Common/Base.cpp
     Demo/Common/Log.cpp
     Demo/Buffer.cpp
+    Demo/Descriptor.cpp
     Demo/Main.cpp
     Demo/Mesh.cpp
     Demo/Pipeline.cpp

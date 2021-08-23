@@ -3,6 +3,7 @@
 #include <Demo/Buffer.h>
 #include <Demo/Common/Base.h>
 #include <Demo/Common/Types.h>
+#include <Demo/Descriptor.h>
 #include <Demo/Pipeline.h>
 #include <Demo/RenderPass.h>
 #include <Demo/RendererBase.h>
@@ -31,9 +32,9 @@ private:
     VkSemaphore m_next_image_acquired = VK_NULL_HANDLE;
     VkFence m_gpu_work_finished = VK_NULL_HANDLE;
 
-    VkDescriptorPool m_descriptor_pool = VK_NULL_HANDLE;
-    VkDescriptorSetLayout m_descriptor_set_layout = VK_NULL_HANDLE;
-    VkDescriptorSet m_descriptor_set = VK_NULL_HANDLE;
+
+    DescriptorSetAllocator m_descriptor_set_allocator = {};
+    DescriptorSet m_descriptor_set = {};
     Buffer m_uniforms = {};
 
     GraphicsPipeline m_pipeline = {};

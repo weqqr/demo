@@ -134,65 +134,22 @@ Renderer::Renderer(const Window& window)
     m_next_image_acquired = create_semaphore(m_device);
     m_gpu_work_finished = create_fence(m_device, false);
 
-    std::array pool_sizes = {
-        VkDescriptorPoolSize{VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 16},
-    };
-
-    VkDescriptorPoolCreateInfo descriptor_pool_create_info = {
-        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
-        .maxSets = 16,
-        .poolSizeCount = static_cast<uint32_t>(pool_sizes.size()),
-        .pPoolSizes = pool_sizes.data(),
-    };
-
-    auto result = vkCreateDescriptorPool(m_device, &descriptor_pool_create_info, nullptr, &m_descriptor_pool);
-    VK_ASSERT(result);
-
-    VkDescriptorSetLayoutBinding binding = {
-        .binding = 0,
-        .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-        .descriptorCount = 1,
-        .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
-    };
-
-    VkDescriptorSetLayoutCreateInfo descriptor_set_layout_create_info = {
-        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
-        .bindingCount = 1,
-        .pBindings = &binding,
-    };
-
-    result = vkCreateDescriptorSetLayout(m_device, &descriptor_set_layout_create_info, nullptr, &m_descriptor_set_layout);
-    VK_ASSERT(result);
-
-    VkDescriptorSetAllocateInfo descriptor_set_allocate_info = {
-        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
-        .descriptorPool = m_descriptor_pool,
-        .descriptorSetCount = 1,
-        .pSetLayouts = &m_descriptor_set_layout,
-    };
-
-    result = vkAllocateDescriptorSets(m_device, &descriptor_set_allocate_info, &m_descriptor_set);
-    VK_ASSERT(result);
-
+    m_descriptor_set_allocator = DescriptorSetAllocator(m_device);
     m_uniforms = Buffer(m_allocator, sizeof(Uniforms), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
 
-    // Point descriptor to buffer
-    VkDescriptorBufferInfo buffer_info = {
-        .buffer = m_uniforms.raw(),
-        .offset = 0,
-        .range = sizeof(Uniforms),
+    std::vector<DescriptorBinding> bindings = {
+        {
+            .binding = 0,
+            .buffer_info = {
+                .buffer = m_uniforms.raw(),
+                .offset = 0,
+                .range = sizeof(Uniforms),
+            },
+            .descriptor_type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+            .stages = VK_SHADER_STAGE_FRAGMENT_BIT,
+        },
     };
-
-    VkWriteDescriptorSet write_descriptor_set = {
-        .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-        .dstSet = m_descriptor_set,
-        .dstBinding = 0,
-        .descriptorCount = 1,
-        .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-        .pBufferInfo = &buffer_info,
-    };
-
-    vkUpdateDescriptorSets(m_device, 1, &write_descriptor_set, 0, nullptr);
+    m_descriptor_set = DescriptorSet(m_device, m_descriptor_set_allocator, bindings);
 
     auto vertex_spirv = load_binary_file("../Demo/Shaders/demo.vert.spv");
     auto fragment_spirv = load_binary_file("../Demo/Shaders/demo.frag.spv");
@@ -200,7 +157,7 @@ Renderer::Renderer(const Window& window)
     m_pipeline = GraphicsPipeline({
         .device = m_device,
         .descriptor_set_layouts = {
-            m_descriptor_set_layout,
+            m_descriptor_set.layout(),
         },
         .push_constant_ranges = {
             {
@@ -220,9 +177,8 @@ Renderer::~Renderer()
     if (m_device) {
         dispose(m_pipeline);
         dispose(m_uniforms);
-        // vkFreeDescriptorSets(m_device, m_descriptor_pool, 1, &m_descriptor_set);
-        vkDestroyDescriptorSetLayout(m_device, m_descriptor_set_layout, nullptr);
-        vkDestroyDescriptorPool(m_device, m_descriptor_pool, nullptr);
+        dispose(m_descriptor_set);
+        dispose(m_descriptor_set_allocator);
 
         vkDestroyFence(m_device, m_gpu_work_finished, nullptr);
         vkDestroySemaphore(m_device, m_next_image_acquired, nullptr);
@@ -317,7 +273,7 @@ void Renderer::render()
         render_pass.execute(cmd, image_views, [&]() {
             vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline.raw());
             vkCmdPushConstants(cmd, m_pipeline.layout(), VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(PushConstants), &push_constants);
-            vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline.layout(), 0, 1, &m_descriptor_set, 0, nullptr);
+            vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline.layout(), 0, 1, m_descriptor_set.as_ptr(), 0, nullptr);
             vkCmdDraw(cmd, 3, 1, 0, 0);
         });
     });
