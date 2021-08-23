@@ -27,7 +27,7 @@ void run()
     });
 
     while (!window.close_requested() && !window.key_pressed(GLFW_KEY_ESCAPE)) {
-        glfwWaitEventsTimeout(1.0 / 60.0);
+        glfwPollEvents();
         renderer.render();
     }
 }

@@ -1,6 +1,7 @@
 #include <Demo/Common/Base.h>
 #include <Demo/Common/Log.h>
 #include <Demo/Config.h>
+#include <Demo/Math.h>
 #include <Demo/Renderer.h>
 #include <Demo/Window.h>
 #include <GLFW/glfw3.h>
@@ -8,7 +9,6 @@
 #include <algorithm>
 #include <array>
 #include <fstream>
-#include <optional>
 #include <span>
 #include <string_view>
 #include <vector>
@@ -115,7 +115,11 @@ struct PushConstants {
 };
 
 struct Uniforms {
+    Vector4 position;
+    Vector4 look_dir;
     float time;
+    float aspect_ratio;
+    float fov;
 };
 
 Renderer::Renderer(const Window& window)
@@ -129,20 +133,6 @@ Renderer::Renderer(const Window& window)
     m_rendering_finished = create_semaphore(m_device);
     m_next_image_acquired = create_semaphore(m_device);
     m_gpu_work_finished = create_fence(m_device, false);
-
-    std::array images = {
-        RenderPassImage{
-            .format = VK_FORMAT_B8G8R8A8_SRGB,
-            .load_op = VK_ATTACHMENT_LOAD_OP_CLEAR,
-            .store_op = VK_ATTACHMENT_STORE_OP_STORE,
-        },
-    };
-
-    RenderPass render_pass({
-        .device = m_device,
-        .size = m_size,
-        .images = images,
-    });
 
     std::array pool_sizes = {
         VkDescriptorPoolSize{VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 16},
@@ -207,9 +197,8 @@ Renderer::Renderer(const Window& window)
     auto vertex_spirv = load_binary_file("../Demo/Shaders/demo.vert.spv");
     auto fragment_spirv = load_binary_file("../Demo/Shaders/demo.frag.spv");
 
-    GraphicsPipelineDesc desc{
+    m_pipeline = GraphicsPipeline({
         .device = m_device,
-        .render_pass = render_pass,
         .descriptor_set_layouts = {
             m_descriptor_set_layout,
         },
@@ -222,8 +211,8 @@ Renderer::Renderer(const Window& window)
         },
         .vertex_shader = Shader(m_device, vertex_spirv),
         .fragment_shader = Shader(m_device, fragment_spirv),
-    };
-    m_pipeline = GraphicsPipeline(desc);
+        .images = {VK_FORMAT_B8G8R8A8_SRGB},
+    });
 }
 
 Renderer::~Renderer()
@@ -287,62 +276,46 @@ void Renderer::resize(Size size)
 
 void Renderer::render()
 {
+    // Skip rendering when the window is minimized
     if (m_size.rectangle_area() == 0) {
         return;
     }
 
-    std::array images = {
-        RenderPassImage{
-            .format = VK_FORMAT_B8G8R8A8_SRGB,
-            .load_op = VK_ATTACHMENT_LOAD_OP_CLEAR,
-            .store_op = VK_ATTACHMENT_STORE_OP_STORE,
-        },
-    };
+    auto [view, index] = m_swapchain.acquire_next_image(m_next_image_acquired);
 
     RenderPass render_pass({
         .device = m_device,
         .size = m_size,
-        .images = images,
+        .images = {
+            RenderPassImage{
+                .format = VK_FORMAT_B8G8R8A8_SRGB,
+                .load_op = VK_ATTACHMENT_LOAD_OP_CLEAR,
+                .store_op = VK_ATTACHMENT_STORE_OP_STORE,
+                .clear_value = VkClearValue{.color = {0.5f, 0.7f, 0.9f, 1.0f}},
+            },
+        },
     });
-
-    auto [view, index] = m_swapchain.acquire_next_image(m_next_image_acquired);
-
-    VkViewport viewport = {
-        .x = 0.0f,
-        .y = 0.0f,
-        .width = static_cast<float>(m_size.width),
-        .height = static_cast<float>(m_size.height),
-        .minDepth = 0.0f,
-        .maxDepth = 1.0f,
-    };
-
-    VkRect2D scissor = {
-        .offset = {0, 0},
-        .extent = {m_size.width, m_size.height},
-    };
-
-    std::array clear_values = {
-        VkClearValue{.color = {0.5f, 0.7f, 0.9f, 1.0f}},
-    };
-    std::array image_views = {view};
 
     PushConstants push_constants = {
         .time = static_cast<float>(glfwGetTime()),
     };
 
     Uniforms uniforms = {
+        .position = Vector4(Vector3(-1.0f, -1.0f, -1.0f), 0.0f),
+        .look_dir = Vector4(Vector3(1.0f, 1.0f, 0.9f), 0.0f),
         .time = static_cast<float>(glfwGetTime()),
+        .aspect_ratio = static_cast<float>(m_size.width) / static_cast<float>(m_size.height),
+        .fov = 90.0f,
     };
 
     m_uniforms.map([&](auto* ptr) {
         memcpy(ptr, &uniforms, sizeof(Uniforms));
     });
 
+    std::array image_views = {view};
     auto cmd = record_command_buffer(m_device, m_command_pool, [&](auto cmd) {
-        render_pass.execute(cmd, clear_values, image_views, [&]() {
+        render_pass.execute(cmd, image_views, [&]() {
             vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline.raw());
-            vkCmdSetViewport(cmd, 0, 1, &viewport);
-            vkCmdSetScissor(cmd, 0, 1, &scissor);
             vkCmdPushConstants(cmd, m_pipeline.layout(), VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(PushConstants), &push_constants);
             vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline.layout(), 0, 1, &m_descriptor_set, 0, nullptr);
             vkCmdDraw(cmd, 3, 1, 0, 0);

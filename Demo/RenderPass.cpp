@@ -8,10 +8,23 @@ RenderPass::RenderPass(const RenderPassDesc& desc)
     m_device = desc.device;
     m_size = desc.size;
 
+    m_viewport = {
+        .x = 0.0f,
+        .y = 0.0f,
+        .width = static_cast<float>(m_size.width),
+        .height = static_cast<float>(m_size.height),
+        .minDepth = 0.0f,
+        .maxDepth = 1.0f,
+    };
+
+    m_scissor = {
+        .offset = {0, 0},
+        .extent = {m_size.width, m_size.height},
+    };
+
     std::vector<VkAttachmentDescription> attachments;
     std::vector<VkAttachmentReference> attachment_refs;
     std::vector<VkFramebufferAttachmentImageInfo> framebuffer_attachments;
-    std::vector<VkClearValue> clear_values;
 
     for (auto image : desc.images) {
         VkAttachmentDescription attachment = {
@@ -44,9 +57,7 @@ RenderPass::RenderPass(const RenderPassDesc& desc)
         attachment_refs.push_back(attachment_ref);
         framebuffer_attachments.push_back(fb_attachment_image_info);
 
-        if (image.clear_value) {
-            clear_values.push_back(*image.clear_value);
-        }
+        m_clear_values.push_back(image.clear_value);
     }
 
     VkSubpassDescription subpass = {
@@ -96,7 +107,7 @@ RenderPass::RenderPass(const RenderPassDesc& desc)
     VK_ASSERT(result);
 }
 
-void RenderPass::begin_render_pass(VkCommandBuffer cmd, std::span<VkClearValue> clear_values, std::span<VkImageView> images)
+void RenderPass::begin_render_pass(VkCommandBuffer cmd, std::span<VkImageView> images)
 {
     VkRenderPassAttachmentBeginInfo rp_attachment_begin_info = {
         .sType = VK_STRUCTURE_TYPE_RENDER_PASS_ATTACHMENT_BEGIN_INFO,
@@ -113,11 +124,13 @@ void RenderPass::begin_render_pass(VkCommandBuffer cmd, std::span<VkClearValue> 
             .offset = {0, 0},
             .extent = {m_size.width, m_size.height},
         },
-        .clearValueCount = static_cast<uint32_t>(clear_values.size()),
-        .pClearValues = clear_values.data(),
+        .clearValueCount = static_cast<uint32_t>(m_clear_values.size()),
+        .pClearValues = m_clear_values.data(),
     };
 
     vkCmdBeginRenderPass(cmd, &rp_begin_info, VK_SUBPASS_CONTENTS_INLINE);
+    vkCmdSetViewport(cmd, 0, 1, &m_viewport);
+    vkCmdSetScissor(cmd, 0, 1, &m_scissor);
 }
 
 void RenderPass::end_render_pass(VkCommandBuffer cmd)

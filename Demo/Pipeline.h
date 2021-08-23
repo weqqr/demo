@@ -8,18 +8,18 @@
 namespace Demo {
 struct GraphicsPipelineDesc {
     VkDevice device;
-    const RenderPass& render_pass;
     std::vector<VkDescriptorSetLayout> descriptor_set_layouts;
     std::vector<VkPushConstantRange> push_constant_ranges;
 
     Shader vertex_shader;
     Shader fragment_shader;
+    std::vector<VkFormat> images;
 };
 
 class GraphicsPipeline : NonCopyable {
 public:
     GraphicsPipeline() = default;
-    GraphicsPipeline(GraphicsPipelineDesc& desc);
+    GraphicsPipeline(GraphicsPipelineDesc desc);
     ~GraphicsPipeline();
 
     VkPipelineLayout layout() const { return m_layout; }

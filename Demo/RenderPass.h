@@ -9,13 +9,13 @@ struct RenderPassImage {
     VkFormat format;
     VkAttachmentLoadOp load_op;
     VkAttachmentStoreOp store_op;
-    std::optional<VkClearValue> clear_value;
+    VkClearValue clear_value;
 };
 
 struct RenderPassDesc {
     VkDevice device;
     Size size;
-    std::span<RenderPassImage> images;
+    std::vector<RenderPassImage> images;
 };
 
 class RenderPass : NonCopyable {
@@ -32,9 +32,9 @@ public:
     }
 
     template<typename F>
-    void execute(VkCommandBuffer cmd, std::span<VkClearValue> clear_values, std::span<VkImageView> images, F f)
+    void execute(VkCommandBuffer cmd, std::span<VkImageView> images, F f)
     {
-        begin_render_pass(cmd, clear_values, images);
+        begin_render_pass(cmd, images);
         f();
         end_render_pass(cmd);
     }
@@ -56,12 +56,15 @@ public:
     }
 
 private:
-    void begin_render_pass(VkCommandBuffer cmd, std::span<VkClearValue> clear_values, std::span<VkImageView> images);
+    void begin_render_pass(VkCommandBuffer cmd, std::span<VkImageView> images);
     void end_render_pass(VkCommandBuffer cmd);
 
     VkDevice m_device = VK_NULL_HANDLE;
     VkFramebuffer m_framebuffer = VK_NULL_HANDLE;
     VkRenderPass m_render_pass = VK_NULL_HANDLE;
+    VkViewport m_viewport = {};
+    VkRect2D m_scissor = {};
+    std::vector<VkClearValue> m_clear_values = {};
     Size m_size = {0, 0};
 };
 }

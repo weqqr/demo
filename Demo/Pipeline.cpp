@@ -1,5 +1,7 @@
 #include <Demo/Common/Log.h>
 #include <Demo/Pipeline.h>
+
+#include <algorithm>
 #include <array>
 
 namespace Demo {
@@ -155,11 +157,27 @@ static VkPipeline create_pipeline(VkDevice device, VkRenderPass render_pass, VkP
     return pipeline;
 }
 
-GraphicsPipeline::GraphicsPipeline(GraphicsPipelineDesc& desc)
+GraphicsPipeline::GraphicsPipeline(GraphicsPipelineDesc desc)
 {
     m_device = desc.device;
+
+    std::vector<RenderPassImage> images;
+    std::transform(desc.images.begin(), desc.images.end(), std::back_inserter(images), [](VkFormat format) {
+        return RenderPassImage {
+            .format = format,
+            .load_op = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+            .store_op = VK_ATTACHMENT_STORE_OP_DONT_CARE,
+        };
+    });
+
+    RenderPass render_pass({
+        .device = m_device,
+        .size = Size(1, 1),
+        .images = images,
+    });
+
     m_layout = create_pipeline_layout(m_device, desc.descriptor_set_layouts, desc.push_constant_ranges);
-    m_pipeline = create_pipeline(m_device, desc.render_pass.raw(), m_layout, move(desc.vertex_shader), move(desc.fragment_shader));
+    m_pipeline = create_pipeline(m_device, render_pass.raw(), m_layout, move(desc.vertex_shader), move(desc.fragment_shader));
 }
 
 GraphicsPipeline::~GraphicsPipeline()
