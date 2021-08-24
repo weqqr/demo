@@ -14,12 +14,28 @@
 #include <vk_mem_alloc.h>
 
 namespace Demo {
+struct UniformBuffer {
+    uint32_t binding;
+    size_t buffer_size;
+};
+
+struct GraphicsPass {
+    std::vector<UniformBuffer> uniform_buffers;
+};
+
 class Renderer : public RendererBase {
 public:
-    explicit Renderer(const Window& window);
+    Renderer(const Window& window, GraphicsPass pass);
     ~Renderer();
     void render();
     void resize(Size size);
+
+    template<typename T>
+    void update(uint32_t index, T t) {
+        m_descriptor_set_buffers[index].map([&](auto* ptr) {
+            memcpy(ptr, &t, sizeof(T));
+        });
+    }
 
 private:
     Swapchain m_swapchain = {};
@@ -32,10 +48,9 @@ private:
     VkSemaphore m_next_image_acquired = VK_NULL_HANDLE;
     VkFence m_gpu_work_finished = VK_NULL_HANDLE;
 
-
     DescriptorSetAllocator m_descriptor_set_allocator = {};
     DescriptorSet m_descriptor_set = {};
-    Buffer m_uniforms = {};
+    std::vector<Buffer> m_descriptor_set_buffers = {};
 
     GraphicsPipeline m_pipeline = {};
 

@@ -114,17 +114,7 @@ struct PushConstants {
     float time;
 };
 
-struct Uniforms {
-    Vector4 position;
-    Vector4 look_dir;
-    float time;
-    float aspect_ratio;
-    float fov;
-    float width;
-    float height;
-};
-
-Renderer::Renderer(const Window& window)
+Renderer::Renderer(const Window& window, GraphicsPass pass)
     : RendererBase(window)
 {
     m_size = window.size();
@@ -137,20 +127,24 @@ Renderer::Renderer(const Window& window)
     m_gpu_work_finished = create_fence(m_device, false);
 
     m_descriptor_set_allocator = DescriptorSetAllocator(m_device);
-    m_uniforms = Buffer(m_allocator, sizeof(Uniforms), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
 
-    std::vector<DescriptorBinding> bindings = {
-        {
+    std::vector<DescriptorBinding> bindings;
+    for (auto uniform_buffer : pass.uniform_buffers) {
+        Buffer buffer(m_allocator, uniform_buffer.buffer_size, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
+        m_descriptor_set_buffers.push_back(move(buffer));
+
+        bindings.push_back({
             .binding = 0,
             .buffer_info = {
-                .buffer = m_uniforms.raw(),
+                .buffer = m_descriptor_set_buffers.back().raw(),
                 .offset = 0,
-                .range = sizeof(Uniforms),
+                .range = uniform_buffer.buffer_size,
             },
             .descriptor_type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
             .stages = VK_SHADER_STAGE_FRAGMENT_BIT,
-        },
-    };
+        });
+    }
+
     m_descriptor_set = DescriptorSet(m_device, m_descriptor_set_allocator, bindings);
 
     auto vertex_spirv = load_binary_file("../Demo/Shaders/fullscreen.vert.spv");
@@ -178,9 +172,9 @@ Renderer::~Renderer()
 {
     if (m_device) {
         dispose(m_pipeline);
-        dispose(m_uniforms);
         dispose(m_descriptor_set);
         dispose(m_descriptor_set_allocator);
+        dispose(m_descriptor_set_buffers);
 
         vkDestroyFence(m_device, m_gpu_work_finished, nullptr);
         vkDestroySemaphore(m_device, m_next_image_acquired, nullptr);
@@ -257,20 +251,6 @@ void Renderer::render()
     PushConstants push_constants = {
         .time = static_cast<float>(glfwGetTime()),
     };
-
-    Uniforms uniforms = {
-        .position = Vector4(Vector3(-1.0f, -1.0f, -1.0f), 0.0f),
-        .look_dir = Vector4(Vector3(1.0f, 1.0f, 0.9f), 0.0f),
-        .time = static_cast<float>(glfwGetTime()),
-        .aspect_ratio = static_cast<float>(m_size.width) / static_cast<float>(m_size.height),
-        .fov = 90.0f,
-        .width = static_cast<float>(m_size.width),
-        .height = static_cast<float>(m_size.height),
-    };
-
-    m_uniforms.map([&](auto* ptr) {
-        memcpy(ptr, &uniforms, sizeof(Uniforms));
-    });
 
     std::array image_views = {view};
     auto cmd = record_command_buffer(m_device, m_command_pool, [&](auto cmd) {
