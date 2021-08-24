@@ -134,7 +134,7 @@ Renderer::Renderer(const Window& window, GraphicsPass pass)
         m_descriptor_set_buffers.push_back(move(buffer));
 
         bindings.push_back({
-            .binding = 0,
+            .binding = uniform_buffer.binding,
             .buffer_info = {
                 .buffer = m_descriptor_set_buffers.back().raw(),
                 .offset = 0,

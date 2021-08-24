@@ -79,19 +79,15 @@ DescriptorSet::DescriptorSet(VkDevice device, DescriptorSetAllocator& allocator,
 
     m_set = allocator.allocate(m_layout);
 
-    std::vector<VkDescriptorBufferInfo> descriptor_buffer_infos;
     std::vector<VkWriteDescriptorSet> writes;
-
-    for (auto binding : bindings) {
-        descriptor_buffer_infos.push_back(binding.buffer_info);
-
+    for (const auto& binding : bindings) {
         VkWriteDescriptorSet write_descriptor_set = {
             .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
             .dstSet = m_set,
-            .dstBinding = 0,
+            .dstBinding = binding.binding,
             .descriptorCount = 1,
             .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-            .pBufferInfo = &descriptor_buffer_infos.back(),
+            .pBufferInfo = &binding.buffer_info,
         };
 
         writes.push_back(write_descriptor_set);

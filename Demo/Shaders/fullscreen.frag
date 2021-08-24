@@ -14,14 +14,17 @@ layout (push_constant) uniform PushConstants {
 } push_constants;
 
 layout (set = 0, binding = 0) uniform Uniforms {
-    vec4 position;
-    vec4 look_dir;
     float time;
     float aspect_ratio;
     float fov;
     float width;
     float height;
 } uniforms;
+
+layout (set = 0, binding = 1) uniform Camera {
+    vec4 position;
+    vec4 look_dir;
+} camera;
 
 const vec3 UP = vec3(0, 1, 0);
 const vec3 SUN = normalize(vec3(0.3, 0.5, 0.7));
@@ -70,8 +73,8 @@ float degrees_to_radians(in float degrees)
 
 Ray generate_ray(in RandomState state)
 {
-    vec3 origin = uniforms.position.xyz;
-    vec3 look_dir = normalize(uniforms.look_dir.xyz);
+    vec3 origin = camera.position.xyz;
+    vec3 look_dir = normalize(camera.look_dir.xyz);
 
     float u_jitter = random(state) / uniforms.width;
     float v_jitter = random(state) / uniforms.height;

@@ -17,13 +17,16 @@ void terminate()
 }
 
 struct Uniforms {
-    Vector4 position;
-    Vector4 look_dir;
     float time;
     float aspect_ratio;
     float fov;
     float width;
     float height;
+};
+
+struct Camera {
+    Vector4 position;
+    Vector4 look_dir;
 };
 
 void run()
@@ -36,6 +39,10 @@ void run()
             UniformBuffer{
                 .binding = 0,
                 .buffer_size = sizeof(Uniforms),
+            },
+            UniformBuffer{
+                .binding = 1,
+                .buffer_size = sizeof(Camera),
             },
         },
     };
@@ -50,8 +57,6 @@ void run()
         glfwPollEvents();
 
         Uniforms uniforms = {
-            .position = Vector4(Vector3(-1.0f, -1.0f, -1.0f), 0.0f),
-            .look_dir = Vector4(Vector3(1.0f, 1.0f, 0.9f), 0.0f),
             .time = static_cast<float>(glfwGetTime()),
             .aspect_ratio = static_cast<float>(1280) / static_cast<float>(720),
             .fov = 90.0f,
@@ -59,7 +64,13 @@ void run()
             .height = static_cast<float>(720),
         };
 
+        Camera camera = {
+            .position = Vector4(Vector3(-1.0f, -1.0f, -1.0f), 0.0f),
+            .look_dir = Vector4(Vector3(1.0f, 1.0f, 0.9f), 0.0f),
+        };
+
         renderer.update(0, uniforms);
+        renderer.update(1, camera);
         renderer.render();
     }
 }
