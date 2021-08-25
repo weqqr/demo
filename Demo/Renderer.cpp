@@ -269,16 +269,16 @@ void Renderer::render()
     std::array image_views = {view};
     auto cmd = record_command_buffer(m_device, m_command_pool, [&](auto cmd) {
         render_pass.execute(cmd, image_views, [&]() {
-            // vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline.raw());
-            // vkCmdPushConstants(cmd, m_pipeline.layout(), VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(PushConstants), &push_constants);
-            // vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline.layout(), 0, 1, m_descriptor_set.as_ptr(), 0, nullptr);
-            // vkCmdDraw(cmd, 3, 1, 0, 0);
+            vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline.raw());
+            vkCmdPushConstants(cmd, m_pipeline.layout(), VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(PushConstants), &push_constants);
+            vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline.layout(), 0, 1, m_descriptor_set.as_ptr(), 0, nullptr);
+            vkCmdDraw(cmd, 3, 1, 0, 0);
 
             vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_mesh_pipeline.raw());
-
-            VkDeviceSize offset = 0;
-            vkCmdBindVertexBuffers(cmd, 0, 1, m_gpu_mesh.buffer().as_ptr(), &offset);
-            vkCmdDraw(cmd, m_gpu_mesh.vertex_count(), 1, 0, 0);
+//
+//            VkDeviceSize offset = 0;
+//            vkCmdBindVertexBuffers(cmd, 0, 1, m_gpu_mesh.buffer().as_ptr(), &offset);
+//            vkCmdDraw(cmd, m_gpu_mesh.vertex_count(), 1, 0, 0);
         });
     });
 

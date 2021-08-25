@@ -40,7 +40,9 @@ add_executable(Demo
     Demo/Common/Log.cpp
     Demo/Buffer.cpp
     Demo/Descriptor.cpp
+    Demo/FlyCamera.cpp
     Demo/Main.cpp
+    Demo/Math.cpp
     Demo/Mesh.cpp
     Demo/Pipeline.cpp
     Demo/Renderer.cpp
