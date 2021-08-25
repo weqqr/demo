@@ -50,6 +50,7 @@ void Mesh::add_vertex(Vertex vertex)
 
 GPUMesh::GPUMesh(VmaAllocator allocator, const Mesh& mesh)
 {
+    m_vertex_count = mesh.vertex_count();
     m_buffer = Buffer(allocator, mesh.data().size() * sizeof(float), VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
     m_buffer.map([&](auto* ptr) {
         memcpy(ptr, mesh.data().data(), mesh.data().size() * sizeof(float));

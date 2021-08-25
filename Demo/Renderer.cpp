@@ -150,6 +150,7 @@ Renderer::Renderer(const Window& window, GraphicsPass pass, const Mesh& mesh)
     m_descriptor_set = DescriptorSet(m_device, m_descriptor_set_allocator, bindings);
 
     auto mesh_vertex_spirv = load_binary_file("../Demo/Shaders/mesh.vert.spv");
+    auto mesh_fragment_spirv = load_binary_file("../Demo/Shaders/mesh.frag.spv");
     auto vertex_spirv = load_binary_file("../Demo/Shaders/fullscreen.vert.spv");
     auto fragment_spirv = load_binary_file("../Demo/Shaders/fullscreen.frag.spv");
 
@@ -173,18 +174,8 @@ Renderer::Renderer(const Window& window, GraphicsPass pass, const Mesh& mesh)
     m_mesh_pipeline = GraphicsPipeline({
         .device = m_device,
         .vertex_layout = Vertex::layout(),
-        .descriptor_set_layouts = {
-            m_descriptor_set.layout(),
-        },
-        .push_constant_ranges = {
-            {
-                .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
-                .offset = 0,
-                .size = sizeof(PushConstants),
-            },
-        },
         .vertex_shader = Shader(m_device, mesh_vertex_spirv),
-        .fragment_shader = Shader(m_device, fragment_spirv),
+        .fragment_shader = Shader(m_device, mesh_fragment_spirv),
         .images = {VK_FORMAT_B8G8R8A8_SRGB},
     });
 }
@@ -284,12 +275,10 @@ void Renderer::render()
             // vkCmdDraw(cmd, 3, 1, 0, 0);
 
             vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_mesh_pipeline.raw());
-            vkCmdPushConstants(cmd, m_mesh_pipeline.layout(), VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(PushConstants), &push_constants);
-            vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_mesh_pipeline.layout(), 0, 1, m_descriptor_set.as_ptr(), 0, nullptr);
 
             VkDeviceSize offset = 0;
             vkCmdBindVertexBuffers(cmd, 0, 1, m_gpu_mesh.buffer().as_ptr(), &offset);
-            vkCmdDraw(cmd, 3, 1, 0, 0);
+            vkCmdDraw(cmd, m_gpu_mesh.vertex_count(), 1, 0, 0);
         });
     });
 
