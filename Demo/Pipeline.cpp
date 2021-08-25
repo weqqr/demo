@@ -25,7 +25,7 @@ static VkPipelineLayout create_pipeline_layout(
     return layout;
 }
 
-static VkPipeline create_pipeline(VkDevice device, VkRenderPass render_pass, VkPipelineLayout layout, Shader vertex, Shader fragment)
+static VkPipeline create_pipeline(VkDevice device, std::optional<VertexLayout> vertex_layout, VkRenderPass render_pass, VkPipelineLayout layout, Shader vertex, Shader fragment)
 {
     VkPipelineShaderStageCreateInfo vertex_stage = {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
@@ -45,13 +45,20 @@ static VkPipeline create_pipeline(VkDevice device, VkRenderPass render_pass, VkP
 
     std::array stages = {vertex_stage, fragment_stage};
 
-    VkPipelineVertexInputStateCreateInfo vertex_input_state = {
-        .sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
-        .vertexBindingDescriptionCount = 0,
-        .pVertexBindingDescriptions = nullptr,
-        .vertexAttributeDescriptionCount = 0,
-        .pVertexAttributeDescriptions = nullptr,
-    };
+    VkPipelineVertexInputStateCreateInfo vertex_input_state;
+    if (vertex_layout) {
+        vertex_input_state = {
+            .sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
+            .vertexBindingDescriptionCount = static_cast<uint32_t>(vertex_layout->binding_descriptions.size()),
+            .pVertexBindingDescriptions = vertex_layout->binding_descriptions.data(),
+            .vertexAttributeDescriptionCount = static_cast<uint32_t>(vertex_layout->attribute_descriptions.size()),
+            .pVertexAttributeDescriptions = vertex_layout->attribute_descriptions.data(),
+        };
+    } else {
+        vertex_input_state = {
+            .sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
+        };
+    }
 
     VkPipelineInputAssemblyStateCreateInfo input_assembly_state = {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
@@ -163,7 +170,7 @@ GraphicsPipeline::GraphicsPipeline(GraphicsPipelineDesc desc)
 
     std::vector<RenderPassImage> images;
     std::transform(desc.images.begin(), desc.images.end(), std::back_inserter(images), [](VkFormat format) {
-        return RenderPassImage {
+        return RenderPassImage{
             .format = format,
             .load_op = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
             .store_op = VK_ATTACHMENT_STORE_OP_DONT_CARE,
@@ -177,7 +184,7 @@ GraphicsPipeline::GraphicsPipeline(GraphicsPipelineDesc desc)
     });
 
     m_layout = create_pipeline_layout(m_device, desc.descriptor_set_layouts, desc.push_constant_ranges);
-    m_pipeline = create_pipeline(m_device, render_pass.raw(), m_layout, move(desc.vertex_shader), move(desc.fragment_shader));
+    m_pipeline = create_pipeline(m_device, desc.vertex_layout, render_pass.raw(), m_layout, move(desc.vertex_shader), move(desc.fragment_shader));
 }
 
 GraphicsPipeline::~GraphicsPipeline()

@@ -1,6 +1,7 @@
 #include <Demo/Common/Base.h>
 #include <Demo/Common/Types.h>
 #include <Demo/Math.h>
+#include <Demo/Mesh.h>
 #include <Demo/Renderer.h>
 #include <Demo/Window.h>
 #include <GLFW/glfw3.h>
@@ -47,7 +48,12 @@ void run()
         },
     };
 
-    Renderer renderer(window, pass);
+    Mesh mesh;
+    mesh.add_vertex({{0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 0.0f}, {0.0f, 0.0f}});
+    mesh.add_vertex({{1.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 0.0f}, {1.0f, 0.0f}});
+    mesh.add_vertex({{1.0f, 1.0f, 0.0f}, {0.0f, 0.0f, 0.0f}, {1.0f, 1.0f}});
+
+    Renderer renderer(window, pass, mesh);
     window.set_resize_handler([&](Size size) {
         renderer.resize(size);
         renderer.render();

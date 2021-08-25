@@ -11,6 +11,7 @@ public:
     ~Buffer();
 
     VkBuffer raw() const { return m_buffer; }
+    const VkBuffer* as_ptr() const { return &m_buffer; }
 
     template<typename F>
     void map(F f)

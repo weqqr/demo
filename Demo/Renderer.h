@@ -4,6 +4,7 @@
 #include <Demo/Common/Base.h>
 #include <Demo/Common/Types.h>
 #include <Demo/Descriptor.h>
+#include <Demo/Mesh.h>
 #include <Demo/Pipeline.h>
 #include <Demo/RenderPass.h>
 #include <Demo/RendererBase.h>
@@ -25,13 +26,14 @@ struct GraphicsPass {
 
 class Renderer : public RendererBase {
 public:
-    Renderer(const Window& window, GraphicsPass pass);
+    Renderer(const Window& window, GraphicsPass pass, const Mesh& mesh);
     ~Renderer();
     void render();
     void resize(Size size);
 
     template<typename T>
-    void update(uint32_t index, T t) {
+    void update(uint32_t index, T t)
+    {
         m_descriptor_set_buffers[index].map([&](auto* ptr) {
             memcpy(ptr, &t, sizeof(T));
         });
@@ -48,11 +50,13 @@ private:
     VkSemaphore m_next_image_acquired = VK_NULL_HANDLE;
     VkFence m_gpu_work_finished = VK_NULL_HANDLE;
 
+    GPUMesh m_gpu_mesh = {};
     DescriptorSetAllocator m_descriptor_set_allocator = {};
     DescriptorSet m_descriptor_set = {};
     std::vector<Buffer> m_descriptor_set_buffers = {};
 
     GraphicsPipeline m_pipeline = {};
+    GraphicsPipeline m_mesh_pipeline = {};
 
     Size m_size = {0, 0};
 };

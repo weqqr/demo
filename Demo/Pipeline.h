@@ -1,13 +1,16 @@
 #pragma once
 
+#include <Demo/Mesh.h>
 #include <Demo/RenderPass.h>
 #include <Demo/RendererBase.h>
 #include <Demo/Shader.h>
 #include <vector>
+#include <optional>
 
 namespace Demo {
 struct GraphicsPipelineDesc {
     VkDevice device;
+    std::optional<VertexLayout> vertex_layout;
     std::vector<VkDescriptorSetLayout> descriptor_set_layouts;
     std::vector<VkPushConstantRange> push_constant_ranges;
 
