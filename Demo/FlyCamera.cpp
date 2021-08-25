@@ -32,7 +32,7 @@ Vector3 FlyCamera::look_dir() const
 
 void FlyCamera::rotate(float dx, float dy)
 {
-    m_pitch -= dy * m_mouse_sensitivity;
+    m_pitch += dy * m_mouse_sensitivity;
     m_yaw -= dx * m_mouse_sensitivity;
 
     if (m_pitch > 85.5) {

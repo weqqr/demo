@@ -83,7 +83,7 @@ Ray generate_ray(in RandomState state)
     vec3 u = scale * normalize(cross(look_dir, UP)) * uniforms.aspect_ratio;
     vec3 v = scale * normalize(cross(u, look_dir));
 
-    vec3 dir = normalize(look_dir + (v_uv.x - 0.5 + u_jitter) * u + (v_uv.y - 0.5 + v_jitter) * v);
+    vec3 dir = normalize(look_dir + (v_uv.x - 0.5 + u_jitter) * u - (v_uv.y - 0.5 + v_jitter) * v);
     vec3 inv_dir = 1.0 / dir;
 
     return Ray(origin, dir, inv_dir);
@@ -117,7 +117,7 @@ vec3 raytrace_entire_thing(in Ray ray, inout RandomState state)
         bool intersects = intersect_scene(ray, distance, normal, albedo);
 
         if (!intersects) {
-            vec3 sky = dot(ray.dir, -SUN) > 0.95 ? vec3(10, 10, 10) : vec3(0.7, 0.8, 0.9);
+            vec3 sky = dot(ray.dir, SUN) > 0.95 ? vec3(10, 10, 10) : vec3(0.7, 0.8, 0.9);
             color += throughput * sky;
             break;
         }
