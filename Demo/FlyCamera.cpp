@@ -1,5 +1,6 @@
 #include <Demo/FlyCamera.h>
 
+#include <Demo/Common/Log.h>
 #include <cmath>
 
 namespace Demo {
@@ -19,16 +20,19 @@ Vector3 FlyCamera::position() const
 
 Vector3 FlyCamera::look_dir() const
 {
-    float x = std::cos(m_yaw) * std::cos(m_pitch);
-    float y = std::sin(m_pitch);
-    float z = std::sin(m_yaw) * std::cos(m_pitch);
+    float pitch = radians(m_pitch);
+    float yaw = radians(m_yaw);
+
+    float x = std::cos(yaw) * std::cos(pitch);
+    float y = std::sin(pitch);
+    float z = std::sin(yaw) * std::cos(pitch);
 
     return {x, y, z};
 }
 
 void FlyCamera::rotate(float dx, float dy)
 {
-    m_pitch += dy * m_mouse_sensitivity;
+    m_pitch -= dy * m_mouse_sensitivity;
     m_yaw -= dx * m_mouse_sensitivity;
 
     if (m_pitch > 85.5) {

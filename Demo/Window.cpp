@@ -13,6 +13,20 @@ static void resize_callback(GLFWwindow* window, int width, int height)
     w->m_resize_handler(Size(static_cast<uint32_t>(width), static_cast<uint32_t>(height)));
 }
 
+static void mouse_move_callback(GLFWwindow* window, double x, double y)
+{
+    auto* w = static_cast<Window*>(glfwGetWindowUserPointer(window));
+
+    w->m_mouse_move_handler(static_cast<float>(x), static_cast<float>(y));
+}
+
+static void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods)
+{
+    auto* w = static_cast<Window*>(glfwGetWindowUserPointer(window));
+
+    w->m_key_handler(key, scancode, action, mods);
+}
+
 Window::Window(const char* title, Size size)
 {
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
@@ -22,6 +36,9 @@ Window::Window(const char* title, Size size)
 
     glfwSetWindowUserPointer(m_window, this);
     glfwSetWindowSizeCallback(m_window, resize_callback);
+    glfwSetCursorPosCallback(m_window, mouse_move_callback);
+    glfwSetKeyCallback(m_window, key_callback);
+    glfwSetInputMode(m_window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 }
 
 Window::~Window()

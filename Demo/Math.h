@@ -1,6 +1,10 @@
 #pragma once
 
 namespace Demo {
+constexpr float PI = 3.1415926f;
+
+float radians(float degrees);
+
 struct Vector2 {
     float x, y;
 

@@ -3,6 +3,11 @@
 #include <cmath>
 
 namespace Demo {
+float radians(float degrees)
+{
+    return degrees / 180.0f * PI;
+}
+
 void Vector3::operator+=(Vector3 rhs)
 {
     x += rhs.x;

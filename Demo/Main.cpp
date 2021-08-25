@@ -1,5 +1,7 @@
 #include <Demo/Common/Base.h>
+#include <Demo/Common/Log.h>
 #include <Demo/Common/Types.h>
+#include <Demo/FlyCamera.h>
 #include <Demo/Math.h>
 #include <Demo/Mesh.h>
 #include <Demo/Renderer.h>
@@ -54,13 +56,44 @@ void run()
     mesh.add_vertex({{0.0f, -0.5f, 0.0f}, {0.0f, 0.0f, 1.0f}, {1.0f, 1.0f}});
 
     Renderer renderer(window, pass, mesh);
+
+    FlyCamera fly_camera({-1.0f, -1.0f, -1.0f}, 0.1f, 0.2f);
+
     window.set_resize_handler([&](Size size) {
         renderer.resize(size);
         renderer.render();
     });
 
+    window.set_mouse_move_handler([&](float x, float y) {
+        static float cx = x;
+        static float cy = y;
+
+        auto dx = cx - x;
+        auto dy = cy - y;
+
+        cx = x;
+        cy = y;
+
+        debug("Mouse move: {} {}", dx, dy);
+
+        fly_camera.rotate(dx, dy);
+    });
+
     while (!window.close_requested() && !window.key_pressed(GLFW_KEY_ESCAPE)) {
         glfwPollEvents();
+
+        if (window.key_pressed(GLFW_KEY_W))
+            fly_camera.move(MovementDirection::Forward);
+        if (window.key_pressed(GLFW_KEY_S))
+            fly_camera.move(MovementDirection::Backward);
+        if (window.key_pressed(GLFW_KEY_A))
+            fly_camera.move(MovementDirection::Left);
+        if (window.key_pressed(GLFW_KEY_D))
+            fly_camera.move(MovementDirection::Right);
+        if (window.key_pressed(GLFW_KEY_SPACE))
+            fly_camera.move(MovementDirection::Up);
+        if (window.key_pressed(GLFW_KEY_LEFT_SHIFT))
+            fly_camera.move(MovementDirection::Down);
 
         Uniforms uniforms = {
             .time = static_cast<float>(glfwGetTime()),
@@ -71,8 +104,8 @@ void run()
         };
 
         Camera camera = {
-            .position = Vector4(Vector3(-1.0f, -1.0f, -1.0f), 0.0f),
-            .look_dir = Vector4(Vector3(1.0f, 1.0f, 0.9f), 0.0f),
+            .position = Vector4(fly_camera.position(), 0.0f),
+            .look_dir = Vector4(fly_camera.look_dir(), 0.0f),
         };
 
         renderer.update(0, uniforms);
