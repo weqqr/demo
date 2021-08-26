@@ -6,6 +6,8 @@
 #include <Demo/Window.h>
 #include <GLFW/glfw3.h>
 
+#include <backends/imgui_impl_vulkan.h>
+
 #include <algorithm>
 #include <array>
 #include <fstream>
@@ -114,6 +116,34 @@ struct PushConstants {
     float time;
 };
 
+template<typename F>
+VkCommandBuffer record_command_buffer(VkDevice device, VkCommandPool pool, F f)
+{
+    VkCommandBufferAllocateInfo cmd_allocate_info = {
+        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
+        .commandPool = pool,
+        .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
+        .commandBufferCount = 1,
+        };
+
+    VkCommandBuffer cmd = VK_NULL_HANDLE;
+    auto result = vkAllocateCommandBuffers(device, &cmd_allocate_info, &cmd);
+    VK_ASSERT(result);
+
+    VkCommandBufferBeginInfo cmd_begin_info = {
+        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+        .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
+        };
+
+    VK_ASSERT(vkBeginCommandBuffer(cmd, &cmd_begin_info));
+
+    f(cmd);
+
+    VK_ASSERT(vkEndCommandBuffer(cmd));
+
+    return cmd;
+}
+
 Renderer::Renderer(const Window& window, GraphicsPass pass, const Mesh& mesh)
     : RendererBase(window)
 {
@@ -178,11 +208,60 @@ Renderer::Renderer(const Window& window, GraphicsPass pass, const Mesh& mesh)
         .fragment_shader = Shader(m_device, mesh_fragment_spirv),
         .images = {VK_FORMAT_B8G8R8A8_SRGB},
     });
+
+    ImGui_ImplVulkan_LoadFunctions([](const char* function_name, void* user_data) {
+        return vkGetInstanceProcAddr((VkInstance)user_data, function_name);
+    },
+        m_instance);
+
+    ImGui_ImplVulkan_InitInfo init_info = {};
+    init_info.Instance = m_instance;
+    init_info.PhysicalDevice = m_physical_device;
+    init_info.Device = m_device;
+    init_info.QueueFamily = m_queue_families.graphics;
+    init_info.Queue = m_graphics;
+    init_info.PipelineCache = VK_NULL_HANDLE;
+    init_info.DescriptorPool = m_descriptor_set_allocator.pool();
+    init_info.Allocator = nullptr;
+    init_info.MinImageCount = 2;
+    init_info.ImageCount = 2;
+    init_info.CheckVkResultFn = [](VkResult result) {
+        VK_ASSERT(result);
+    };
+
+    RenderPass rp(RenderPassDesc{
+        .device = m_device,
+        .size = Size(1, 1),
+        .images = {
+            RenderPassImage{
+                .format = VK_FORMAT_B8G8R8A8_SRGB,
+                .load_op = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+                .store_op = VK_ATTACHMENT_STORE_OP_DONT_CARE,
+            },
+        },
+    });
+
+    ImGui_ImplVulkan_Init(&init_info, rp.raw());
+
+    {
+        auto cmd = record_command_buffer(m_device, m_command_pool, [](auto cmd) {
+            ImGui_ImplVulkan_CreateFontsTexture(cmd);
+        });
+
+        VkSubmitInfo end_info = {};
+        end_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+        end_info.commandBufferCount = 1;
+        end_info.pCommandBuffers = &cmd;
+        VK_ASSERT(vkQueueSubmit(m_graphics, 1, &end_info, VK_NULL_HANDLE));
+        VK_ASSERT(vkDeviceWaitIdle(m_device));
+        ImGui_ImplVulkan_DestroyFontUploadObjects();
+    }
 }
 
 Renderer::~Renderer()
 {
     if (m_device) {
+        ImGui_ImplVulkan_Shutdown();
         dispose(m_mesh_pipeline);
         dispose(m_pipeline);
         dispose(m_descriptor_set);
@@ -199,34 +278,6 @@ Renderer::~Renderer()
 
         dispose(m_swapchain);
     }
-}
-
-template<typename F>
-VkCommandBuffer record_command_buffer(VkDevice device, VkCommandPool pool, F f)
-{
-    VkCommandBufferAllocateInfo cmd_allocate_info = {
-        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
-        .commandPool = pool,
-        .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
-        .commandBufferCount = 1,
-    };
-
-    VkCommandBuffer cmd = VK_NULL_HANDLE;
-    auto result = vkAllocateCommandBuffers(device, &cmd_allocate_info, &cmd);
-    VK_ASSERT(result);
-
-    VkCommandBufferBeginInfo cmd_begin_info = {
-        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
-        .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
-    };
-
-    VK_ASSERT(vkBeginCommandBuffer(cmd, &cmd_begin_info));
-
-    f(cmd);
-
-    VK_ASSERT(vkEndCommandBuffer(cmd));
-
-    return cmd;
 }
 
 void Renderer::resize(Size size)
@@ -266,6 +317,9 @@ void Renderer::render()
         .time = static_cast<float>(glfwGetTime()),
     };
 
+    ImGui::Render();
+    ImDrawData* draw_data = ImGui::GetDrawData();
+
     std::array image_views = {view};
     auto cmd = record_command_buffer(m_device, m_command_pool, [&](auto cmd) {
         render_pass.execute(cmd, image_views, [&]() {
@@ -275,10 +329,12 @@ void Renderer::render()
             vkCmdDraw(cmd, 3, 1, 0, 0);
 
             vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_mesh_pipeline.raw());
-//
-//            VkDeviceSize offset = 0;
-//            vkCmdBindVertexBuffers(cmd, 0, 1, m_gpu_mesh.buffer().as_ptr(), &offset);
-//            vkCmdDraw(cmd, m_gpu_mesh.vertex_count(), 1, 0, 0);
+            //
+            //            VkDeviceSize offset = 0;
+            //            vkCmdBindVertexBuffers(cmd, 0, 1, m_gpu_mesh.buffer().as_ptr(), &offset);
+            //            vkCmdDraw(cmd, m_gpu_mesh.vertex_count(), 1, 0, 0);
+
+            ImGui_ImplVulkan_RenderDrawData(draw_data, cmd);
         });
     });
 

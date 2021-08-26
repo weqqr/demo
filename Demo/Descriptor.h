@@ -10,6 +10,7 @@ public:
     ~DescriptorSetAllocator();
     VkDescriptorSet allocate(VkDescriptorSetLayout layout);
     void reset();
+    VkDescriptorPool pool() const { return m_pool; };
 
     DescriptorSetAllocator(DescriptorSetAllocator&& other) noexcept
     {

@@ -104,6 +104,15 @@ bool intersect_scene(in Ray ray, out float distance, out vec3 normal, out vec3 a
     return intersects;
 }
 
+vec3 sample_sky(in vec3 dir)
+{
+    const float sun_radius = 696340; // in kilometers
+    const float distance_to_sun = 150e6; // in kilometers
+    const float angular_size = 2 * atan(sun_radius / distance_to_sun);
+
+    return dot(dir, SUN) > cos(angular_size) ? vec3(10, 10, 10) : vec3(0.7, 0.8, 0.9);
+}
+
 vec3 raytrace_entire_thing(in Ray ray, inout RandomState state)
 {
     vec3 color = vec3(0);
@@ -117,8 +126,7 @@ vec3 raytrace_entire_thing(in Ray ray, inout RandomState state)
         bool intersects = intersect_scene(ray, distance, normal, albedo);
 
         if (!intersects) {
-            vec3 sky = dot(ray.dir, SUN) > 0.95 ? vec3(10, 10, 10) : vec3(0.7, 0.8, 0.9);
-            color += throughput * sky;
+            color += throughput * sample_sky(ray.dir);
             break;
         }
 

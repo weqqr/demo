@@ -5,6 +5,7 @@ add_compile_definitions(VK_USE_PLATFORM_WIN32_KHR WIN32_LEAN_AND_MEAN NOMINMAX)
 
 add_subdirectory(Vendor/fmt)
 add_subdirectory(Vendor/glfw)
+add_subdirectory(Vendor/imgui)
 add_subdirectory(Vendor/vma)
 add_subdirectory(Vendor/volk)
 
@@ -54,4 +55,4 @@ add_executable(Demo
 add_dependencies(Demo DemoShaders)
 target_compile_features(Demo PUBLIC cxx_std_20)
 target_include_directories(Demo PUBLIC ${CMAKE_CURRENT_LIST_DIR})
-target_link_libraries(Demo fmt glfw vma volk)
+target_link_libraries(Demo fmt glfw imgui vma volk)

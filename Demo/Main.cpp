@@ -7,6 +7,9 @@
 #include <Demo/Renderer.h>
 #include <Demo/Window.h>
 #include <GLFW/glfw3.h>
+#include <backends/imgui_impl_glfw.h>
+#include <backends/imgui_impl_vulkan.h>
+#include <imgui.h>
 
 namespace Demo {
 void init()
@@ -32,6 +35,11 @@ struct Camera {
     Vector4 look_dir;
 };
 
+enum class InteractionMode {
+    UI,
+    Camera,
+};
+
 void run()
 {
     Window window("Demo", {1280, 720});
@@ -55,9 +63,15 @@ void run()
     mesh.add_vertex({{0.5f, 0.5f, 0.0f}, {0.0f, 1.0f, 0.0f}, {1.0f, 0.0f}});
     mesh.add_vertex({{0.0f, -0.5f, 0.0f}, {0.0f, 0.0f, 1.0f}, {1.0f, 1.0f}});
 
+    auto& imgui_io = ImGui::GetIO();
+    imgui_io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+    ImGui::StyleColorsDark();
+    ImGui_ImplGlfw_InitForVulkan(window.glfw_handle(), true);
+
     Renderer renderer(window, pass, mesh);
 
     FlyCamera fly_camera({-1.0f, -1.0f, -1.0f}, 0.1f, 0.2f);
+    InteractionMode mode = InteractionMode::Camera;
 
     window.set_resize_handler([&](Size size) {
         renderer.resize(size);
@@ -74,31 +88,60 @@ void run()
         cx = x;
         cy = y;
 
-        debug("Mouse move: {} {}", dx, dy);
-
-        fly_camera.rotate(dx, dy);
+        if (mode == InteractionMode::Camera) {
+            fly_camera.rotate(dx, dy);
+        }
     });
 
-    while (!window.close_requested() && !window.key_pressed(GLFW_KEY_ESCAPE)) {
+    window.set_key_handler([&](int key, int scancode, int action, int mods) {
+        if (key == GLFW_KEY_GRAVE_ACCENT && action == GLFW_RELEASE) {
+            if (mode == InteractionMode::Camera) {
+                mode = InteractionMode::UI;
+                glfwSetInputMode(window.glfw_handle(), GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+            } else if (mode == InteractionMode::UI) {
+                mode = InteractionMode::Camera;
+                glfwSetInputMode(window.glfw_handle(), GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+            }
+        }
+    });
+
+    float fov = 90.0f;
+
+    while (!window.close_requested()) {
         glfwPollEvents();
 
-        if (window.key_pressed(GLFW_KEY_W))
-            fly_camera.move(MovementDirection::Forward);
-        if (window.key_pressed(GLFW_KEY_S))
-            fly_camera.move(MovementDirection::Backward);
-        if (window.key_pressed(GLFW_KEY_A))
-            fly_camera.move(MovementDirection::Left);
-        if (window.key_pressed(GLFW_KEY_D))
-            fly_camera.move(MovementDirection::Right);
-        if (window.key_pressed(GLFW_KEY_SPACE))
-            fly_camera.move(MovementDirection::Up);
-        if (window.key_pressed(GLFW_KEY_LEFT_SHIFT))
-            fly_camera.move(MovementDirection::Down);
+        ImGui_ImplGlfw_NewFrame();
+        ImGui_ImplVulkan_NewFrame();
+        ImGui::NewFrame();
+
+        if (mode == InteractionMode::UI) {
+            ImGui::Begin("Settings", nullptr);
+            ImGui::SliderFloat("FOV", &fov, 40.0f, 140.0f, "%.0f", ImGuiSliderFlags_AlwaysClamp);
+            if (ImGui::Button("Close Me")) {
+                debug("button");
+            }
+            ImGui::End();
+        } else {
+            if (window.key_pressed(GLFW_KEY_ESCAPE))
+                break;
+            if (window.key_pressed(GLFW_KEY_W))
+                fly_camera.move(MovementDirection::Forward);
+            if (window.key_pressed(GLFW_KEY_S))
+                fly_camera.move(MovementDirection::Backward);
+            if (window.key_pressed(GLFW_KEY_A))
+                fly_camera.move(MovementDirection::Left);
+            if (window.key_pressed(GLFW_KEY_D))
+                fly_camera.move(MovementDirection::Right);
+            if (window.key_pressed(GLFW_KEY_SPACE))
+                fly_camera.move(MovementDirection::Up);
+            if (window.key_pressed(GLFW_KEY_LEFT_SHIFT))
+                fly_camera.move(MovementDirection::Down);
+        }
 
         Uniforms uniforms = {
             .time = static_cast<float>(glfwGetTime()),
             .aspect_ratio = static_cast<float>(1280) / static_cast<float>(720),
-            .fov = 90.0f,
+            .fov = fov,
             .width = static_cast<float>(1280),
             .height = static_cast<float>(720),
         };
@@ -112,14 +155,19 @@ void run()
         renderer.update(1, camera);
         renderer.render();
     }
+
+    ImGui_ImplGlfw_Shutdown();
 }
 }
 
 int main()
 {
+    IMGUI_CHECKVERSION();
+    ImGui::CreateContext();
     Demo::init();
     Demo::run();
     Demo::terminate();
+    ImGui::DestroyContext();
 
     return 0;
 }
