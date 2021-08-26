@@ -11,14 +11,19 @@
 #include <backends/imgui_impl_vulkan.h>
 #include <imgui.h>
 
+#include <chrono>
+
 namespace Demo {
 void init()
 {
     ASSERT(glfwInit());
+    IMGUI_CHECKVERSION();
+    ImGui::CreateContext();
 }
 
 void terminate()
 {
+    ImGui::DestroyContext();
     glfwTerminate();
 }
 
@@ -39,6 +44,35 @@ enum class InteractionMode {
     UI,
     Camera,
 };
+
+struct Stats {
+    float time_ms;
+};
+
+void show_stats(Stats stats)
+{
+    auto flags = ImGuiWindowFlags_NoDocking
+        | ImGuiWindowFlags_NoNav
+        | ImGuiWindowFlags_NoDecoration
+        | ImGuiWindowFlags_NoInputs
+        | ImGuiWindowFlags_NoFocusOnAppearing
+        | ImGuiWindowFlags_NoSavedSettings
+        | ImGuiWindowFlags_AlwaysAutoResize;
+
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, {4, 4});
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowMinSize, {0, 0});
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 1);
+    ImGui::PushStyleColor(ImGuiCol_Border, {0.8f, 0.8f, 0.8f, 1.0f});
+    ImGui::PushStyleColor(ImGuiCol_WindowBg, {0.0f, 0.05f, 0.1f, 1.0f});
+    ImGui::Begin("stats", nullptr, flags);
+    {
+        ImGui::SetWindowPos({0, 0});
+        ImGui::Text("Framerate: %dfps  Time: %.02fms", static_cast<int>(std::round(1000 / stats.time_ms)), stats.time_ms);
+    }
+    ImGui::End();
+    ImGui::PopStyleColor(2);
+    ImGui::PopStyleVar(3);
+}
 
 void run()
 {
@@ -107,19 +141,26 @@ void run()
 
     float fov = 90.0f;
 
+    auto then = std::chrono::high_resolution_clock::now();
+
     while (!window.close_requested()) {
         glfwPollEvents();
+
+        auto now = std::chrono::high_resolution_clock::now();
+        auto dt = now - then;
+        then = now;
 
         ImGui_ImplGlfw_NewFrame();
         ImGui_ImplVulkan_NewFrame();
         ImGui::NewFrame();
 
+        show_stats({
+            .time_ms = std::chrono::duration<float, std::milli>(dt).count(),
+        });
+
         if (mode == InteractionMode::UI) {
             ImGui::Begin("Settings", nullptr);
             ImGui::SliderFloat("FOV", &fov, 40.0f, 140.0f, "%.0f", ImGuiSliderFlags_AlwaysClamp);
-            if (ImGui::Button("Close Me")) {
-                debug("button");
-            }
             ImGui::End();
         } else {
             if (window.key_pressed(GLFW_KEY_ESCAPE))
@@ -162,12 +203,9 @@ void run()
 
 int main()
 {
-    IMGUI_CHECKVERSION();
-    ImGui::CreateContext();
     Demo::init();
     Demo::run();
     Demo::terminate();
-    ImGui::DestroyContext();
 
     return 0;
 }
