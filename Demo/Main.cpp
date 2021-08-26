@@ -1,6 +1,8 @@
 #include <Demo/Common/Base.h>
 #include <Demo/Common/Log.h>
 #include <Demo/Common/Types.h>
+#include <Demo/Voxels/DenseGrid.h>
+#include <Demo/Voxels/Voxel.h>
 #include <Demo/FlyCamera.h>
 #include <Demo/Math.h>
 #include <Demo/Mesh.h>
@@ -94,17 +96,12 @@ void run()
         },
     };
 
-    Mesh mesh;
-    mesh.add_vertex({{-0.5f, 0.5f, 0.0f}, {1.0f, 0.0f, 0.0f}, {0.0f, 0.0f}});
-    mesh.add_vertex({{0.5f, 0.5f, 0.0f}, {0.0f, 1.0f, 0.0f}, {1.0f, 0.0f}});
-    mesh.add_vertex({{0.0f, -0.5f, 0.0f}, {0.0f, 0.0f, 1.0f}, {1.0f, 1.0f}});
-
     auto& imgui_io = ImGui::GetIO();
     imgui_io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
     ImGui::StyleColorsDark();
     ImGui_ImplGlfw_InitForVulkan(window.glfw_handle(), true);
 
-    Renderer renderer(window, pass, mesh);
+    Renderer renderer(window, pass);
 
     FlyCamera fly_camera({-1.0f, -1.0f, -1.0f}, 0.1f, 0.2f);
     InteractionMode mode = InteractionMode::Camera;
@@ -140,6 +137,9 @@ void run()
             }
         }
     });
+
+    ProceduralVoxelSource source({16, 16, 16});
+    DenseGrid grid(source);
 
     float fov = 90.0f;
 

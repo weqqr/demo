@@ -26,7 +26,7 @@ struct GraphicsPass {
 
 class Renderer : public RendererBase {
 public:
-    Renderer(const Window& window, GraphicsPass pass, const Mesh& mesh);
+    Renderer(const Window& window, GraphicsPass pass);
     ~Renderer();
     void render();
     void resize(Vector2u size);
@@ -50,7 +50,6 @@ private:
     VkSemaphore m_next_image_acquired = VK_NULL_HANDLE;
     VkFence m_gpu_work_finished = VK_NULL_HANDLE;
 
-    GPUMesh m_gpu_mesh = {};
     DescriptorSetAllocator m_descriptor_set_allocator = {};
     DescriptorSet m_descriptor_set = {};
     std::vector<Buffer> m_descriptor_set_buffers = {};

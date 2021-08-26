@@ -20,9 +20,9 @@ public:
     virtual Voxel get_voxel(Vector3u position) const = 0;
 };
 
-class ProceduralGrid : public VoxelSource {
+class ProceduralVoxelSource : public VoxelSource {
 public:
-    explicit ProceduralGrid(Vector3u size)
+    explicit ProceduralVoxelSource(Vector3u size)
         : m_size(size)
     {
     }

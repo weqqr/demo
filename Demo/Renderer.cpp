@@ -144,7 +144,7 @@ VkCommandBuffer record_command_buffer(VkDevice device, VkCommandPool pool, F f)
     return cmd;
 }
 
-Renderer::Renderer(const Window& window, GraphicsPass pass, const Mesh& mesh)
+Renderer::Renderer(const Window& window, GraphicsPass pass)
     : RendererBase(window)
 {
     m_size = window.size();
@@ -157,8 +157,6 @@ Renderer::Renderer(const Window& window, GraphicsPass pass, const Mesh& mesh)
     m_gpu_work_finished = create_fence(m_device, false);
 
     m_descriptor_set_allocator = DescriptorSetAllocator(m_device);
-
-    m_gpu_mesh = GPUMesh(m_allocator, mesh);
 
     std::vector<DescriptorBinding> bindings;
     for (auto uniform_buffer : pass.uniform_buffers) {
@@ -272,7 +270,6 @@ Renderer::~Renderer()
         vkDestroySemaphore(m_device, m_next_image_acquired, nullptr);
         vkDestroySemaphore(m_device, m_rendering_finished, nullptr);
 
-        dispose(m_gpu_mesh);
         vmaDestroyAllocator(m_allocator);
         vkDestroyCommandPool(m_device, m_command_pool, nullptr);
 
@@ -327,12 +324,6 @@ void Renderer::render()
             vkCmdPushConstants(cmd, m_pipeline.layout(), VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(PushConstants), &push_constants);
             vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline.layout(), 0, 1, m_descriptor_set.as_ptr(), 0, nullptr);
             vkCmdDraw(cmd, 3, 1, 0, 0);
-
-            vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_mesh_pipeline.raw());
-            //
-            //            VkDeviceSize offset = 0;
-            //            vkCmdBindVertexBuffers(cmd, 0, 1, m_gpu_mesh.buffer().as_ptr(), &offset);
-            //            vkCmdDraw(cmd, m_gpu_mesh.vertex_count(), 1, 0, 0);
 
             ImGui_ImplVulkan_RenderDrawData(draw_data, cmd);
         });
