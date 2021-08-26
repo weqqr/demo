@@ -10,7 +10,7 @@ static void resize_callback(GLFWwindow* window, int width, int height)
 {
     auto* w = static_cast<Window*>(glfwGetWindowUserPointer(window));
 
-    w->m_resize_handler(Size(static_cast<uint32_t>(width), static_cast<uint32_t>(height)));
+    w->m_resize_handler(Vector2u(static_cast<uint32_t>(width), static_cast<uint32_t>(height)));
 }
 
 static void mouse_move_callback(GLFWwindow* window, double x, double y)
@@ -27,7 +27,7 @@ static void key_callback(GLFWwindow* window, int key, int scancode, int action, 
     w->m_key_handler(key, scancode, action, mods);
 }
 
-Window::Window(const char* title, Size size)
+Window::Window(const char* title, Vector2u size)
 {
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
     m_window = glfwCreateWindow(static_cast<int>(size.width), static_cast<int>(size.height), title, nullptr, nullptr);
@@ -68,7 +68,7 @@ bool Window::key_pressed(int key) const
     return glfwGetKey(m_window, key) == GLFW_PRESS;
 }
 
-Size Window::size() const
+Vector2u Window::size() const
 {
     int width = 0;
     int height = 0;
@@ -78,7 +78,7 @@ Size Window::size() const
     return {static_cast<uint32_t>(width), static_cast<uint32_t>(height)};
 }
 
-void Window::set_size_limits(Size minimum, Size maximum)
+void Window::set_size_limits(Vector2u minimum, Vector2u maximum)
 {
     glfwSetWindowSizeLimits(m_window, minimum.width, minimum.height, maximum.width, maximum.height);
 }

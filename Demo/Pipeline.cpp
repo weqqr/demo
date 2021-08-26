@@ -179,7 +179,7 @@ GraphicsPipeline::GraphicsPipeline(GraphicsPipelineDesc desc)
 
     RenderPass render_pass({
         .device = m_device,
-        .size = Size(1, 1),
+        .size = Vector2u(1, 1),
         .images = images,
     });
 

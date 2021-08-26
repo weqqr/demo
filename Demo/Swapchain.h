@@ -7,7 +7,7 @@ namespace Demo {
 class Swapchain : NonCopyable {
 public:
     Swapchain() = default;
-    Swapchain(VkSurfaceKHR surface, VkPhysicalDevice physical_device, QueueFamilies queue_families, VkDevice device, Size size);
+    Swapchain(VkSurfaceKHR surface, VkPhysicalDevice physical_device, QueueFamilies queue_families, VkDevice device, Vector2u size);
     ~Swapchain();
 
     std::pair<VkImageView, uint32_t> acquire_next_image(VkSemaphore semaphore);

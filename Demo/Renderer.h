@@ -29,7 +29,7 @@ public:
     Renderer(const Window& window, GraphicsPass pass, const Mesh& mesh);
     ~Renderer();
     void render();
-    void resize(Size size);
+    void resize(Vector2u size);
 
     template<typename T>
     void update(uint32_t index, T t)
@@ -58,6 +58,6 @@ private:
     GraphicsPipeline m_pipeline = {};
     GraphicsPipeline m_mesh_pipeline = {};
 
-    Size m_size = {0, 0};
+    Vector2u m_size = {0, 0};
 };
 }

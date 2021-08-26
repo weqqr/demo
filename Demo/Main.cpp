@@ -59,15 +59,17 @@ void show_stats(Stats stats)
         | ImGuiWindowFlags_NoSavedSettings
         | ImGuiWindowFlags_AlwaysAutoResize;
 
+    auto y_pos = ImGui::GetMainViewport()->Size.y;
+
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, {4, 4});
     ImGui::PushStyleVar(ImGuiStyleVar_WindowMinSize, {0, 0});
     ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 1);
     ImGui::PushStyleColor(ImGuiCol_Border, {0.8f, 0.8f, 0.8f, 1.0f});
     ImGui::PushStyleColor(ImGuiCol_WindowBg, {0.0f, 0.05f, 0.1f, 1.0f});
+    ImGui::SetNextWindowPos({0, y_pos}, ImGuiCond_Always, {0.0f, 1.0f});
     ImGui::Begin("stats", nullptr, flags);
     {
-        ImGui::SetWindowPos({0, 0});
-        ImGui::Text("Framerate: %dfps  Time: %.02fms", static_cast<int>(std::round(1000 / stats.time_ms)), stats.time_ms);
+        ImGui::Text("Frame rate: %dfps  Time: %.02fms", static_cast<int>(std::round(1000 / stats.time_ms)), stats.time_ms);
     }
     ImGui::End();
     ImGui::PopStyleColor(2);
@@ -107,7 +109,7 @@ void run()
     FlyCamera fly_camera({-1.0f, -1.0f, -1.0f}, 0.1f, 0.2f);
     InteractionMode mode = InteractionMode::Camera;
 
-    window.set_resize_handler([&](Size size) {
+    window.set_resize_handler([&](Vector2u size) {
         renderer.resize(size);
         renderer.render();
     });
@@ -195,6 +197,8 @@ void run()
         renderer.update(0, uniforms);
         renderer.update(1, camera);
         renderer.render();
+
+        ImGui::EndFrame();
     }
 
     ImGui_ImplGlfw_Shutdown();

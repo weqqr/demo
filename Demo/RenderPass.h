@@ -14,7 +14,7 @@ struct RenderPassImage {
 
 struct RenderPassDesc {
     VkDevice device;
-    Size size;
+    Vector2u size;
     std::vector<RenderPassImage> images;
 };
 
@@ -65,6 +65,6 @@ private:
     VkViewport m_viewport = {};
     VkRect2D m_scissor = {};
     std::vector<VkClearValue> m_clear_values = {};
-    Size m_size = {0, 0};
+    Vector2u m_size = {0, 0};
 };
 }

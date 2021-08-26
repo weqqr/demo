@@ -231,7 +231,7 @@ Renderer::Renderer(const Window& window, GraphicsPass pass, const Mesh& mesh)
 
     RenderPass rp(RenderPassDesc{
         .device = m_device,
-        .size = Size(1, 1),
+        .size = Vector2u(1, 1),
         .images = {
             RenderPassImage{
                 .format = VK_FORMAT_B8G8R8A8_SRGB,
@@ -280,7 +280,7 @@ Renderer::~Renderer()
     }
 }
 
-void Renderer::resize(Size size)
+void Renderer::resize(Vector2u size)
 {
     vkDeviceWaitIdle(m_device);
     m_size = size;

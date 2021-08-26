@@ -9,7 +9,7 @@ VkSwapchainKHR create_swapchain(
     QueueFamilies queue_families,
     VkDevice device,
     VkSurfaceKHR surface,
-    Size size,
+    Vector2u size,
     VkSwapchainKHR old_swapchain = VK_NULL_HANDLE)
 {
     VkSurfaceCapabilitiesKHR capabilities = {};
@@ -57,7 +57,7 @@ VkSwapchainKHR create_swapchain(
     return swapchain;
 }
 
-Swapchain::Swapchain(VkSurfaceKHR surface, VkPhysicalDevice physical_device, QueueFamilies queue_families, VkDevice device, Size size)
+Swapchain::Swapchain(VkSurfaceKHR surface, VkPhysicalDevice physical_device, QueueFamilies queue_families, VkDevice device, Vector2u size)
 {
     m_device = device;
     m_swapchain = create_swapchain(physical_device, queue_families, device, surface, size);

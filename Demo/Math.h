@@ -1,5 +1,7 @@
 #pragma once
 
+#include <Demo/Common/Types.h>
+
 namespace Demo {
 constexpr float PI = 3.1415926f;
 
@@ -63,6 +65,35 @@ struct Vector4 {
         , y(xyz.y)
         , z(xyz.z)
         , w(w)
+    {
+    }
+};
+
+struct Vector2u {
+    uint32_t width;
+    uint32_t height;
+
+    constexpr Vector2u(uint32_t width, uint32_t height)
+        : width(width)
+        , height(height)
+    {
+    }
+
+    uint32_t rectangle_area() const
+    {
+        return width * height;
+    }
+};
+
+struct Vector3u {
+    uint32_t x;
+    uint32_t y;
+    uint32_t z;
+
+    constexpr Vector3u(uint32_t x, uint32_t y, uint32_t z)
+        : x(x)
+        , y(y)
+        , z(z)
     {
     }
 };
