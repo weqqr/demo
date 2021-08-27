@@ -86,7 +86,7 @@ DescriptorSet::DescriptorSet(VkDevice device, DescriptorSetAllocator& allocator,
             .dstSet = m_set,
             .dstBinding = binding.binding,
             .descriptorCount = 1,
-            .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+            .descriptorType = binding.descriptor_type,
             .pBufferInfo = &binding.buffer_info,
         };
 

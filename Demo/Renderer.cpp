@@ -124,7 +124,7 @@ VkCommandBuffer record_command_buffer(VkDevice device, VkCommandPool pool, F f)
         .commandPool = pool,
         .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
         .commandBufferCount = 1,
-        };
+    };
 
     VkCommandBuffer cmd = VK_NULL_HANDLE;
     auto result = vkAllocateCommandBuffers(device, &cmd_allocate_info, &cmd);
@@ -133,7 +133,7 @@ VkCommandBuffer record_command_buffer(VkDevice device, VkCommandPool pool, F f)
     VkCommandBufferBeginInfo cmd_begin_info = {
         .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
         .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
-        };
+    };
 
     VK_ASSERT(vkBeginCommandBuffer(cmd, &cmd_begin_info));
 
@@ -171,6 +171,22 @@ Renderer::Renderer(const Window& window, GraphicsPass pass)
                 .range = uniform_buffer.buffer_size,
             },
             .descriptor_type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+            .stages = VK_SHADER_STAGE_FRAGMENT_BIT,
+        });
+    }
+
+    for (auto storage_buffer : pass.storage_buffers) {
+        Buffer buffer(m_allocator, storage_buffer.buffer_size, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
+        m_descriptor_set_buffers.push_back(move(buffer));
+
+        bindings.push_back({
+            .binding = storage_buffer.binding,
+            .buffer_info = {
+                .buffer = m_descriptor_set_buffers.back().raw(),
+                .offset = 0,
+                .range = storage_buffer.buffer_size,
+            },
+            .descriptor_type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
             .stages = VK_SHADER_STAGE_FRAGMENT_BIT,
         });
     }

@@ -22,6 +22,7 @@ struct UniformBuffer {
 
 struct GraphicsPass {
     std::vector<UniformBuffer> uniform_buffers;
+    std::vector<UniformBuffer> storage_buffers;
 };
 
 class Renderer : public RendererBase {

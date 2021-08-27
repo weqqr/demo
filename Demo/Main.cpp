@@ -1,12 +1,12 @@
 #include <Demo/Common/Base.h>
 #include <Demo/Common/Log.h>
 #include <Demo/Common/Types.h>
-#include <Demo/Voxels/DenseGrid.h>
-#include <Demo/Voxels/Voxel.h>
 #include <Demo/FlyCamera.h>
 #include <Demo/Math.h>
 #include <Demo/Mesh.h>
 #include <Demo/Renderer.h>
+#include <Demo/Voxels/DenseGrid.h>
+#include <Demo/Voxels/Voxel.h>
 #include <Demo/Window.h>
 #include <GLFW/glfw3.h>
 #include <backends/imgui_impl_glfw.h>
@@ -92,6 +92,12 @@ void run()
             UniformBuffer{
                 .binding = 1,
                 .buffer_size = sizeof(Camera),
+            },
+        },
+        .storage_buffers = {
+            UniformBuffer{
+                .binding = 2,
+                .buffer_size = sizeof(float),
             },
         },
     };
