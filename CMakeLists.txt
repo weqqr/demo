@@ -39,8 +39,6 @@ add_custom_target(DemoShaders DEPENDS ${SPIRV_PATHS})
 add_executable(Demo
     Demo/Common/Base.cpp
     Demo/Common/Log.cpp
-    Demo/Voxels/DenseGrid.cpp
-    Demo/Voxels/Voxel.cpp
     Demo/Buffer.cpp
     Demo/Descriptor.cpp
     Demo/FlyCamera.cpp

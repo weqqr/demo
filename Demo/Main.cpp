@@ -5,8 +5,6 @@
 #include <Demo/Math.h>
 #include <Demo/Mesh.h>
 #include <Demo/Renderer.h>
-#include <Demo/Voxels/DenseGrid.h>
-#include <Demo/Voxels/Voxel.h>
 #include <Demo/Window.h>
 #include <GLFW/glfw3.h>
 #include <backends/imgui_impl_glfw.h>
@@ -14,6 +12,8 @@
 #include <imgui.h>
 
 #include <chrono>
+#include <iostream>
+#include <typeinfo>
 
 namespace Demo {
 void init()
@@ -144,9 +144,6 @@ void run()
         }
     });
 
-    ProceduralVoxelSource source({16, 16, 16});
-    DenseGrid grid(source);
-
     float fov = 90.0f;
 
     auto then = std::chrono::high_resolution_clock::now();
@@ -213,6 +210,7 @@ void run()
 
 int main()
 {
+
     Demo::init();
     Demo::run();
     Demo::terminate();

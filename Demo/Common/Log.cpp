@@ -3,10 +3,10 @@
 #define DM_COLORED_OUTPUT 0
 
 #if DM_COLORED_OUTPUT
-#define DM_RED "\033[0;31m"
-#define DM_GREEN "\033[0;32m"
-#define DM_YELLOW "\033[0;33m"
-#define DM_RESET "\033[0m"
+#define DM_RED "\x1B[0;31m"
+#define DM_GREEN "\x1B[0;32m"
+#define DM_YELLOW "\x1B[0;33m"
+#define DM_RESET "\x1B[0m"
 #else
 #define DM_RED ""
 #define DM_GREEN ""
